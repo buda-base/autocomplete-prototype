@@ -1,0 +1,31 @@
+select ?bol ?sc ?cat
+{
+    {
+       # direct scores
+      {
+        (?res ?lsc ?l) text:query ( bdo:skosLabels "\"bka' 'gyur\""@bo-x-ewts ) .
+      } union {
+        (?title ?lsc ?l) text:query ( rdfs:label "\"bka' 'gyur\""@bo-x-ewts ) .
+        ?res bdo:personName ?title .
+      }
+      ?res tmp:entityScore ?sc .
+      ?resadm adm:adminAbout ?res ;
+        adm:status bda:StatusReleased .
+      ?res a ?cat .
+      BIND(f:ewtsToUnicode(?l) as ?bol)
+    } union {
+       # scores in the work
+      {
+        (?res ?lsc ?l) text:query ( bdo:skosLabels "\"bka' 'gyur\""@bo-x-ewts ) .
+      } union {
+        (?title ?lsc ?l) text:query ( rdfs:label "\"bka' 'gyur\""@bo-x-ewts ) .
+        ?res bdo:hasTitle ?title .
+      }
+      ?res :instanceOf ?wa .
+      ?wa tmp:entityScore ?sc .
+      ?resadm adm:adminAbout ?res ;
+        adm:status bda:StatusReleased .
+      BIND(bdo:Instance as ?cat) .
+      BIND(f:ewtsToUnicode(?l) as ?bol)
+    }
+}

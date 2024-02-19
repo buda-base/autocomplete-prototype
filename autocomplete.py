@@ -50,7 +50,7 @@ SAVED_INDEXES = {}
 def get_index(index_name):
 	if index_name in SAVED_INDEXES:
 		return SAVED_INDEXES[index_name]
-	encoder = Encoder()
+	encoder = Encoder(allow_decode=True)
 	cat_encoder = Encoder(allow_decode=True)
 	partial_to_full = {}
 	trie = Trie()
@@ -82,15 +82,28 @@ def auto_complete(query_s, res_limit=10, index_name="bo_all"):
 	   "res": "<ignored>foo </ignored>ba<suggested>r</suggested>",
 	   "lang": "bo",
 	   "category": "Person"
-	   "pct_token_matched": 0.5
 	}
 	"""
 	first_c_idx = get_proper_start_i(query_s)
 	unprefixed_query = query_s[first_c_idx:]
 	query_tokens = tokenize_bo(unprefixed_query)
-	trie, encoder, partial_to_full = get_index(index_name)
-
-
-
-
-def tokenize
+	trie, encoder, partial_to_full, cat_encoder = get_index(index_name)
+	encoded_query = encoder.encode_list(query_tokens)
+	suggestions = trie.get_top_10_suffixes(encoded_query)
+	res = []
+	base_res_str = ""
+	if first_c_idx > 0:
+		base_res_str = "<ignored>" + query_s[:first_c_idx] + "</ignored>"
+	base_res_str += unprefixed_query
+	for s in suggestions:
+		encoded_suffix, encoded_category, score = s
+		category = cat_encoder.decode(encoded_category)
+		sufix = encoder.decode_string(encoded_suffix)
+		res_str = base_res_str
+		if suffix:
+			res_str += "<suggested>" + sufix + "</suggested>"
+		res.append({
+			"res": res_str,
+			"lang": "bo",
+			"category": category
+			})

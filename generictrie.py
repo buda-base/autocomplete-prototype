@@ -1,7 +1,7 @@
 import csv
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
 
 # Simple decorated Trie with helper functions
 
@@ -77,7 +77,7 @@ class Trie:
         current_node.set_score_in_category(score, category)
 
     def get_top_10_suffixes_for_node(self, res, node, cur_suffix="", score_limit=0):
-        logging.debug("get top 10 suffixes for %s" % (node.debug(self.encoder)))
+        #logging.debug("get top 10 suffixes for %s (score limit %d)" % (node.debug(self.encoder), score_limit))
         if node.scores is not None:
             for cat, score in node.scores.items():
                 if score >= score_limit:
@@ -113,4 +113,4 @@ class Trie:
                 self.get_top_10_suffixes_for_node(res, current_node, "", score_limit)
                 if res:
                     score_limit = max(score_limit, res[-1].score)
-        return res[10:]
+        return res[:10]

@@ -6,7 +6,7 @@ from generictrie import Trie, Node
 import csv
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
 
 def normalize_bo(s):
 	s = normalize_unicode(s)

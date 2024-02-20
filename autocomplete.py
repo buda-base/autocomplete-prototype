@@ -1,8 +1,8 @@
 from botok import normalize_unicode
 from botok import tokenize_in_stacks
 from botok.utils.lenient_normalization import remove_affixes, normalize_graphical, normalize_punctuation
-from .encoder import Encoder
-from .generictrie import Trie, Node
+from encoder import Encoder
+from generictrie import Trie, Node
 import csv
 
 def normalize_bo(s):
@@ -33,8 +33,7 @@ def tokenize_bo(query_s):
 	"""
 	query_s = normalize_bo(query_s)
 	stack_list = tokenize_in_stacks(query_s)
-	# use the pybo tokenizer to tokenize on stacks
-	return [Token()]
+	return stack_list
 
 def get_proper_start_i(query_s):
 	"""
@@ -57,7 +56,7 @@ def get_index(index_name):
 	fname = "input_bo_categories_kangyur.csv"
 	with open(fname, newline='') as csvfile:
 	    csvreader = csv.reader(csvfile)
-	    for row in spamreader:
+	    for row in csvreader:
 	        s = normalize_unicode(row[0])
 	        score = int(row[1])
 	        encoded_cat = cat_encoder.encode(row[2])
@@ -65,7 +64,7 @@ def get_index(index_name):
 	        encoded_token_list = ""
 	        for t in token_list:
 	        	encoded_t = encoder.encode(t)
-	        	encoded_token_list += encoded_t
+	        	encoded_token_list += chr(encoded_t)
 	        	# fill partial_to_full
 	        	for i in range(1, len(t)):
 	        		partial = t[i:]
@@ -98,12 +97,16 @@ def auto_complete(query_s, res_limit=10, index_name="bo_all"):
 	for s in suggestions:
 		encoded_suffix, encoded_category, score = s
 		category = cat_encoder.decode(encoded_category)
-		sufix = encoder.decode_string(encoded_suffix)
+		suffix = encoder.decode_string(encoded_suffix)
 		res_str = base_res_str
 		if suffix:
-			res_str += "<suggested>" + sufix + "</suggested>"
+			res_str += "<suggested>" + suffix + "</suggested>"
 		res.append({
 			"res": res_str,
 			"lang": "bo",
 			"category": category
 			})
+	return res
+
+if __name__ == "__main__":
+	print(auto_complete("བཀའ་འགྱུར།"))

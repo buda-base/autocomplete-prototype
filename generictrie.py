@@ -10,7 +10,7 @@ class Node:
         self.scores = None
         self.children = {}
         self.top_10 = {}
-        self.min_top_10_idx = 0
+        self.min_top_10_score = 0
     
     def addChild(self, key, score, canbefinal=True):
         child_label = None
@@ -21,7 +21,7 @@ class Node:
             self.children[key.label] = key
             child_label = key.label
         if score > self.min_top_10_score:
-            for i, score in enumerate(self.top_10.keys()):
+            for i, score in enumerate(list(self.top_10.keys())):
                 if score == self.min_top_10_score:
                     del self.top_10[score]
             self.min_top_10_score = score
@@ -51,8 +51,8 @@ class Trie:
         current_node.set_score_in_category(score, category)
 
     def get_top_10_suffixes_for_node(self, res, node, cur_suffix="", score_limit=0):
-        if self.scores is not None:
-            for cat, score in self.scores:
+        if node.scores is not None:
+            for cat, score in node.scores.items():
                 if score >= score_limit:
                     res.append((cur_suffix, cat, score))
         if len(res) >= 10:
@@ -60,11 +60,11 @@ class Trie:
         child_l_to_lowest_score_to_explore = {}
         for score, child_l in node.top_10.items():
             if score >= score_limit:
-                if child_l not in lowest_score_to_node:
+                if child_l not in child_l_to_lowest_score_to_explore:
                     child_l_to_lowest_score_to_explore[child_l] = score
                 else:
                     child_l_to_lowest_score_to_explore[child_l] = min(score, child_l_to_lowest_score_to_explore[child_l])
-        for c_l, score in children_with_high_score:
+        for c_l, score in child_l_to_lowest_score_to_explore.items():
             self.get_top_10_suffixes_for_node(res, node.children[c_l], cur_suffix+c_l, score)
     
     def get_top_10_suffixes(self, word, score_limit=0):

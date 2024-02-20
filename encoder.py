@@ -62,7 +62,8 @@ class Encoder(object):
     def encode_list(self, element_list: List[str]):
         res = ""
         for e in element_list:
-            res += encode_str(e)
+            s, nb_c = self.encode_str(e)
+            res += s
         return res
 
     def decode(self, code: int) -> str:
@@ -74,11 +75,11 @@ class Encoder(object):
             raise KeyError(
                 'there is no elements in the encoder encoded as %d' % code)
 
-    def decode_string(self, s: str, separator="|"):
-        res = separator
+    def decode_string(self, s: str):
+        res = ""
         for c in s:
             decoded_c = self.decode(ord(c))
-            res += decoded_c + separator
+            res += decoded_c
         return res
 
     def elements(self):

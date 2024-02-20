@@ -48,7 +48,7 @@ def get_index(index_name):
 	encoder = Encoder(allow_decode=True)
 	cat_encoder = Encoder(allow_decode=True)
 	partial_to_full = {}
-	trie = Trie()
+	trie = Trie(encoder)
 	fname = "input_bo_categories_kangyur.csv"
 	with open(fname, newline='') as csvfile:
 	    csvreader = csv.reader(csvfile)

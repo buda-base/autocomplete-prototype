@@ -4,36 +4,32 @@ from botok.utils.lenient_normalization import remove_affixes, normalize_graphica
 from encoder import Encoder
 from generictrie import Trie, Node
 import csv
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 def normalize_bo(s):
 	s = normalize_unicode(s)
 	s = normalize_graphical(s)
-	s = normalize_punctuation(s)
+	s = normalize_punctuation(s).strip()
 	# TODO: remove everything non-Tibetan
 	return s
 
 def make_lenient_bo(s):
 	return s
 
-class Token:
-	def __init__(self, encoder, partial_to_full, token_s, is_full=True):
-		self.user_s = token_s
-		self.is_full = is_full
-		self.possible_full_encoded = []
-		self.encoded = None
-		if is_full:
-			self.encoded = encoder.encode(make_lenient_bo(token_s))
-		elif token_s in partial_to_full:
-			for full_tkn in partial_to_full[token_s]:
-				self.possible_full_encoded.append(encoder.encode(full_tkn))
-
-def tokenize_bo(query_s):
+def tokenize_bo(query_s, partial_to_full):
 	"""
 	returns a list of tokens, checks if the last token is complete or not
 	"""
 	query_s = normalize_bo(query_s)
 	stack_list = tokenize_in_stacks(query_s)
-	return stack_list
+	final_stack = stack_list[-1]
+	last_token_candidates = []
+	if final_stack in partial_to_full:
+		stack_list = stack_list[:-1]
+		last_token_candidates = partial_to_full[final_stack]
+	return stack_list, last_token_candidates
 
 def get_proper_start_i(query_s):
 	"""
@@ -85,10 +81,12 @@ def auto_complete(query_s, res_limit=10, index_name="bo_all"):
 	"""
 	first_c_idx = get_proper_start_i(query_s)
 	unprefixed_query = query_s[first_c_idx:]
-	query_tokens = tokenize_bo(unprefixed_query)
 	trie, encoder, partial_to_full, cat_encoder = get_index(index_name)
+	query_tokens, final_token_candidates_encoded = tokenize_bo(unprefixed_query, partial_to_full)
+	logging.debug("query tokens: %s\nfinal token candidates encoded: %s", query_tokens, final_token_candidates_encoded)
 	encoded_query = encoder.encode_list(query_tokens)
-	suggestions = trie.get_top_10_suffixes(encoded_query)
+	logging.debug("encoded query: %s", encoded_query)
+	suggestions = trie.get_top_10_suffixes(encoded_query, final_token_candidates_encoded)
 	res = []
 	base_res_str = ""
 	if first_c_idx > 0:

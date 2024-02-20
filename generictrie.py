@@ -1,4 +1,7 @@
 import csv
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 # Simple decorated Trie with helper functions
 
@@ -67,7 +70,7 @@ class Trie:
         for c_l, score in child_l_to_lowest_score_to_explore.items():
             self.get_top_10_suffixes_for_node(res, node.children[c_l], cur_suffix+c_l, score)
     
-    def get_top_10_suffixes(self, word, score_limit=0):
+    def get_top_10_suffixes(self, word, possible_last_tokens, score_limit=0):
         current_node = self.head
         for c in word:
             if c in current_node.children:
@@ -75,21 +78,14 @@ class Trie:
             else:
                 return None
         res = []
-        self.get_top_10_suffixes_for_node(res, current_node, "", score_limit)
-        return res
-
-
-if __name__ == '__main__':
-    """ Example use """
-    trie = Trie()
-    trie.add("test", "test_data")
-    trie.add("t", "t_data")
-    print(trie.get_longest_match_with_data("test"))
-    print(trie.get_data("test"))
-    print(trie.get_longest_match_with_data("tes"))
-    trie.add("te", "te_data", False)
-    print(trie.get_longest_match_with_data("tes"))
-    print(trie.get_longest_match_with_data("te"))
-    def iteratortest(word, data):
-        print("data for \""+word+"\": "+data)
-    trie.walk_all_data(iteratortest)
+        if not possible_last_tokens:
+            self.get_top_10_suffixes_for_node(res, current_node, "", score_limit)
+        else:
+            for plt in possible_last_tokens:
+                if plt not in current_node.children:
+                    continue
+                potential_child_node = current_node.children[plt]
+                self.get_top_10_suffixes_for_node(res, current_node, "", score_limit)
+                if res:
+                    score_limit = max(score_limit, res[-1].score)
+        return res[10:]

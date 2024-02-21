@@ -63,10 +63,10 @@ def get_index(index_name):
 	        	encoded_token_list += chr(encoded_t)
 	        	# fill partial_to_full
 	        	for i in range(1, len(t)):
-	        		partial = t[i:]
+	        		partial = t[:i]
 	        		if partial not in partial_to_full:
 	        			partial_to_full[partial] = set()
-	        		partial_to_full[partial].add(t)
+	        		partial_to_full[partial].add(chr(encoded_t))
 	        trie.add(encoded_token_list, score, encoded_cat)
 	return trie, encoder, partial_to_full, cat_encoder
 
@@ -91,7 +91,7 @@ def auto_complete(query_s, res_limit=10, index_name="bo_all"):
 	base_res_str = ""
 	if first_c_idx > 0:
 		base_res_str = "<ignored>" + query_s[:first_c_idx] + "</ignored>"
-	base_res_str += unprefixed_query
+	base_res_str += "".join(query_tokens)
 	for s in suggestions:
 		encoded_suffix, encoded_category, score = s
 		category = cat_encoder.decode(encoded_category)
@@ -107,4 +107,5 @@ def auto_complete(query_s, res_limit=10, index_name="bo_all"):
 	return res
 
 if __name__ == "__main__":
-	print(auto_complete("བཀའ་འགྱུར།"))
+	#print(auto_complete("བཀའ་འགྱུར།"))
+	print(auto_complete("བཀའ་འགྱ"))

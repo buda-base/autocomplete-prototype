@@ -112,5 +112,5 @@ class Trie:
                 potential_child_node = current_node.children[plt]
                 self.get_top_10_suffixes_for_node(res, current_node, "", score_limit)
                 if res:
-                    score_limit = max(score_limit, res[-1].score)
+                    score_limit = max(score_limit, res[-1][2])
         return res[:10]

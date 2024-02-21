@@ -41,7 +41,10 @@ class Node:
     def set_score_in_category(self, score, category):
         if self.scores is None:
             self.scores = {}
-        self.scores[category] = score
+        if category in self.scores:
+            self.scores[category] = max(score, self.scores[category])
+        else:    
+            self.scores[category] = score
 
     def __getitem__(self, key):
         return self.children[key]
@@ -82,6 +85,7 @@ class Trie:
             for cat, score in node.scores.items():
                 if score >= score_limit:
                     res.append((cur_suffix, cat, score))
+                    res.sort(key=lambda x: x[2], reverse=True)
         if len(res) >= 10:
             return
         child_l_to_lowest_score_to_explore = {}
@@ -112,5 +116,6 @@ class Trie:
                 potential_child_node = current_node.children[plt]
                 self.get_top_10_suffixes_for_node(res, current_node, "", score_limit)
                 if res:
+                    res = sorted(res, key=lambda x: x[2], reverse=True)
                     score_limit = max(score_limit, res[-1][2])
         return res[:10]

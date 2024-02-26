@@ -29,3 +29,47 @@ select ?bol ?sc ?cat
       BIND(f:ewtsToUnicode(?l) as ?bol)
     }
 }
+
+
+select ?ewts ?sc ?cat {
+  {
+    ?res tmp:entityScore ?sc .
+    ?resadm adm:adminAbout ?res ;
+        adm:status bda:StatusReleased .
+    ?res skos:prefLabel ?ewts .
+    FILTER(lang(?ewts) = "bo-x-ewts")
+    ?res a ?cat .
+  } union {
+    ?res tmp:entityScore ?sc .
+    ?resadm adm:adminAbout ?res ;
+        adm:status bda:StatusReleased .
+    ?res a ?cat .
+    ?res skos:altLabel ?ewts .
+    FILTER(lang(?ewts) = "bo-x-ewts")
+  } union {
+    ?res tmp:entityScore ?sc .
+    ?resadm adm:adminAbout ?res ;
+        adm:status bda:StatusReleased .
+    ?res :personName ?pn .
+    ?pn rdfs:label ?ewts .
+    FILTER(lang(?ewts) = "bo-x-ewts")
+    bind(:Person as ?cat)
+  } union {
+    ?wa tmp:entityScore ?sc .
+    ?res :instanceOf ?wa .
+    ?resadm adm:adminAbout ?res ;
+        adm:status bda:StatusReleased .
+    ?res skos:prefLabel ?ewts .
+    FILTER(lang(?ewts) = "bo-x-ewts")
+    bind(:Instance as ?cat)
+  } union {
+    ?wa tmp:entityScore ?sc .
+    ?res :instanceOf ?wa .
+    ?resadm adm:adminAbout ?res ;
+        adm:status bda:StatusReleased .
+    bind(:Instance as ?cat)
+    ?res :hasTitle ?t .
+    ?t rdfs:label ?ewts .
+    FILTER(lang(?ewts) = "bo-x-ewts")
+  }
+}

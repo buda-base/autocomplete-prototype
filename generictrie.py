@@ -105,7 +105,8 @@ class Trie:
             if c in current_node.children:
                 current_node = current_node.children[c]
             else:
-                return None
+                logging.debug("could not find the query in the trie")
+                return []
         res = []
         if not possible_last_tokens:
             self.get_top_10_suffixes_for_node(res, current_node, "", score_limit)

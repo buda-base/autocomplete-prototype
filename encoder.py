@@ -63,6 +63,7 @@ class Encoder(object):
         res = ""
         for e in element_list:
             s, nb_c = self.encode_str(e)
+            #print("encode %s as %s (%d)" % (e, s, ord(s)))
             res += s
         return res
 

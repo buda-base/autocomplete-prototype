@@ -3,7 +3,6 @@ from generictrie import Trie, Node
 import logging
 import pyewts
 from index_builder import get_index
-from utils import normalize_bo, tokenize_bo
 
 EWTSCONVERTER = pyewts.pyewts()
 
@@ -18,7 +17,8 @@ def get_proper_start_i(query_s):
     """
     return 0
 
-def auto_complete(query_s, res_limit=10, index_name="bo_all"):
+
+def auto_complete(query_s, res_limit=10, index_name="bo_general"):
     """
     The main function. Returns a list of 10 results in the following format:
     {
@@ -30,7 +30,7 @@ def auto_complete(query_s, res_limit=10, index_name="bo_all"):
     first_c_idx = get_proper_start_i(query_s)
     unprefixed_query = query_s[first_c_idx:]
     index = get_index(index_name)
-    query_tokens, final_token_candidates_encoded = tokenize_bo(unprefixed_query, index.partial_to_full)
+    query_tokens, final_token_candidates_encoded = index.tokenize_query(unprefixed_query)
     logging.debug("query tokens: %s", query_tokens)
     logging.debug("final token candidates: %s", [index.encoder.decode(ord(i)) for i in final_token_candidates_encoded])
     encoded_query = index.encoder.encode_list(query_tokens)

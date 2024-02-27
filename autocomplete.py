@@ -57,5 +57,6 @@ def auto_complete(query_s, res_limit=10, index_name="bo_general"):
 
 if __name__ == "__main__":
     #print(auto_complete("བཀའ་འགྱུར།"))
-    print(auto_complete("བཀའ་འགྱ"))
+    #print(auto_complete("བཀའ་འགྱ"))
+    print(auto_complete("bka' '", index_name="ewts_general"))
     #print(auto_complete("བཀའ་འགྱ"))

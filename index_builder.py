@@ -42,7 +42,7 @@ def ewts_tokenize_to_bo(s):
     return tokenize_in_stacks(s)
 
 def ewts_tokenize_to_ewts(s):
-    s = normalize_ewts(row[0])
+    s = normalize_ewts(s)
     return tokenize_ewts_base(s)
 
 def index_from_csv(csv_fname, value_to_tokens_fun):

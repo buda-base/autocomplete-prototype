@@ -62,7 +62,7 @@ def index_from_csv(csv_fname, value_to_tokens_fun):
                 encoded_t = encoder.encode(t)
                 encoded_token_list += chr(encoded_t)
                 # fill partial_to_full
-                for i in range(1, len(t)):
+                for i in range(1, len(t)+1):
                     partial = t[:i]
                     if partial not in partial_to_full:
                         partial_to_full[partial] = set()

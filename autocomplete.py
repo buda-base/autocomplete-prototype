@@ -41,6 +41,7 @@ def auto_complete(query_s, res_limit=10, index_name="bo_general"):
     if first_c_idx > 0:
         base_res_str = "<ignored>" + query_s[:first_c_idx] + "</ignored>"
     base_res_str += "".join(query_tokens)
+    lng = "bo" if index_name == "bo_general" else "bo-x-ewts"
     for s in suggestions:
         encoded_suffix, encoded_category, score = s
         category = index.cat_encoder.decode(encoded_category)
@@ -50,7 +51,7 @@ def auto_complete(query_s, res_limit=10, index_name="bo_general"):
             res_str += "<suggested>" + suffix + "</suggested>"
         res.append({
             "res": res_str,
-            "lang": "bo",
+            "lang": lng,
             "category": category
             })
     return res

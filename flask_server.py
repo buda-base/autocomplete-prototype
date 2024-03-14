@@ -8,7 +8,6 @@ import json
 api = Flask("autosuggest")
 CORS(api)
 
-
 @api.route('/autosuggest', methods=['POST'])
 def run_scam_api():
     """
@@ -24,7 +23,8 @@ def run_scam_api():
     index_name = "ewts_general"
     if main_script_tag == "Tibt":
         index_name = "bo_general"
-    print(index_name)
+    #logging.info(index_name)
+    logging.info("query: "+ query)
     res = auto_complete(query, index_name=index_name)
     return jsonify(res)
 

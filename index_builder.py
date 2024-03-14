@@ -8,6 +8,7 @@ import pyewts
 from utils import normalize_bo, normalize_ewts, tokenize_ewts_base
 from botok import tokenize_in_stacks
 import sys
+from threading import Lock
 
 sys.setrecursionlimit(10000)
 
@@ -83,23 +84,30 @@ INDEXES = {
     }
 }
 
+IDXLOCK = Lock()
 def get_index(index_name):
+    global IDXLOCK
     if index_name not in INDEXES:
         return None
-    if index_name in SAVED_INDEXES:
-        return SAVED_INDEXES[index_name]
-    index_info = INDEXES[index_name]
-    pickle_path = index_name+".pickle"
-    if Path(pickle_path).is_file():
-        logging.info("load index from %s", pickle_path)
-        with open(pickle_path, 'rb') as handle:
-            index = pickle.load(handle)
-            index.query_tokenize_fun = index_info["query_tokenize_fun"]
-            SAVED_INDEXES[index_name] = index
-            return index
-    index = index_from_csv(index_info["csv_fname"], index_info["value_to_tokens_fun"])
-    with open(pickle_path, 'wb') as handle:
-        pickle.dump(index, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    index.query_tokenize_fun = index_info["query_tokenize_fun"]
-    SAVED_INDEXES[index_name] = index
-    return index
+    with IDXLOCK:
+        if index_name in SAVED_INDEXES:
+            return SAVED_INDEXES[index_name]
+        index_info = INDEXES[index_name]
+        pickle_path = index_name+".pickle"
+        if Path(pickle_path).is_file():
+            logging.info("load index from %s", pickle_path)
+            with open(pickle_path, 'rb') as handle:
+                index = pickle.load(handle)
+                index.query_tokenize_fun = index_info["query_tokenize_fun"]
+                SAVED_INDEXES[index_name] = index
+                return index
+        index = index_from_csv(index_info["csv_fname"], index_info["value_to_tokens_fun"])
+        with open(pickle_path, 'wb') as handle:
+            pickle.dump(index, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        index.query_tokenize_fun = index_info["query_tokenize_fun"]
+        SAVED_INDEXES[index_name] = index
+        return index
+
+def preload_indexes():
+    get_index("ewts_general")
+    get_index("bo_general")

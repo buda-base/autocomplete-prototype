@@ -7,6 +7,7 @@ import json
 
 api = Flask("autosuggest")
 CORS(api)
+api.config['JSON_AS_ASCII'] = False
 
 @api.route('/autosuggest', methods=['POST'])
 def run_scam_api():

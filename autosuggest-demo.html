@@ -17,6 +17,9 @@
         #searchInput {
             width: 500px;
         }
+        suggested {
+            font-weight:700;
+        }
     </style>
 </head>
 <body>
@@ -25,7 +28,16 @@
 <div id="suggestions"></div>
 
 <script>
-document.getElementById('searchInput').addEventListener('input', function(e) {
+    
+function debounce(func, timeout = 300){
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { func.apply(this, args); }, timeout);
+  };
+}
+
+document.getElementById('searchInput').addEventListener('input', debounce(function(e) {
     const searchString = e.target.value;
 
     if (searchString.length > 0) {
@@ -50,7 +62,7 @@ document.getElementById('searchInput').addEventListener('input', function(e) {
     } else {
         document.getElementById('suggestions').style.display = 'none'; // Hide if input is cleared
     }
-});
+}));
 </script>
 
 </body>

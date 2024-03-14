@@ -6,7 +6,7 @@ from index_builder import get_index
 
 EWTSCONVERTER = pyewts.pyewts()
 
-#logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 def get_proper_start_i(query_s):
     """

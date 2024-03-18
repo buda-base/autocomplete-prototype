@@ -17,6 +17,12 @@ def get_proper_start_i(query_s):
     """
     return 0
 
+def max_lev_dst_for_query_s(query_s):
+    if len(query_s) < 3:
+        return 0
+    if len(query_s) < 9:
+        return 1
+    return 2
 
 def auto_complete(query_s, res_limit=10, index_name="bo_general"):
     """
@@ -35,7 +41,8 @@ def auto_complete(query_s, res_limit=10, index_name="bo_general"):
     logging.debug("final token candidates: %s", [index.encoder.decode(ord(i)) for i in final_token_candidates_encoded])
     encoded_query = index.encoder.encode_list(query_tokens)
     logging.debug("encoded query: '%s' (%s)", encoded_query, [ord(c) for c in encoded_query])
-    suggestions = index.trie.get_top_10_suffixes(encoded_query, final_token_candidates_encoded)
+    max_lev_dst = max_lev_dst_for_query_s(query_s)
+    suggestions = index.trie.get_top_10_suffixes(encoded_query, final_token_candidates_encoded, max_lev_dst=max_lev_dst)
     res = []
     base_res_str = ""
     if first_c_idx > 0:
@@ -59,5 +66,5 @@ def auto_complete(query_s, res_limit=10, index_name="bo_general"):
 if __name__ == "__main__":
     #print(auto_complete("བཀའ་འགྱུར།"))
     #print(auto_complete("བཀའ་འགྱ"))
-    print(auto_complete("chod ", index_name="ewts_general"))
+    print(auto_complete("bka' gyu", index_name="ewts_general"))
     #print(auto_complete("བཀའ་འགྱ"))

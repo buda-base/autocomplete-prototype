@@ -46,6 +46,15 @@ class Node:
         else:    
             self.scores[category] = score
 
+    def get_max_score(self, include_children=True):
+        res = 0
+        if self.scores:
+            res = max(self.scores.values())
+        if include_children and self.top_10_scores:
+            res_children = max(self.top_10_scores)
+            res = max(res, res_children)
+        return res
+
     def __getitem__(self, key):
         return self.children[key]
 
@@ -104,7 +113,7 @@ class Trie:
         if part == word:
             return
 
-        max_node_score = max(node.top_10_scores)
+        max_node_score = node.get_max_score()
         lowest_res_score = 0 if res == [] else res[-1][2]
 
         if len(res) >= 10 and max_node_score < lowest_res_score:

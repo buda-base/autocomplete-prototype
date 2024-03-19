@@ -78,7 +78,7 @@ INDEXES = {
        "query_tokenize_fun": bo_tokenize_to_bo,
     },
     "ewts_general": {
-        "csv_fname": "input_ewts_categories_kangyur2.csv",
+        "csv_fname": "input_ewts_categories.csv",
         "value_to_tokens_fun": ewts_tokenize_to_ewts,
         "query_tokenize_fun": ewts_tokenize_to_ewts
     }

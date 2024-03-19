@@ -72,7 +72,6 @@ class Trie:
         return self.head.children[key]
     
     def add(self, s, score, category, canbefinal=True):
-        print("add")
         current_node = self.head
         for c in s:
             if c not in current_node.children:
@@ -111,7 +110,7 @@ class Trie:
         if len(res) >= 10 and max_node_score < lowest_res_score:
             return
 
-        if min(lvs_row) == lev_dst:
+        if lvs_row[-1] == lev_dst:
             res.append((node, part, max_node_score))
             res.sort(key=lambda x: x[2], reverse=True)
             if len(res) > 10:
@@ -137,12 +136,9 @@ class Trie:
                 self.get_top_10_nodes_with_lvs_dst_for_node(res, node.children[char], word, part + char, next_row, lev_dst)
 
     def get_top_10_suffixes_for_node_combine(self, res, node, word, lev_dst, possible_last_tokens, score_limit=0):
-        print("debug0 %s", word, self.encoder.decode_string(word))
         if not possible_last_tokens:
-            print("debug1")
             self.get_top_10_suffixes_for_node(res, current_node, word, lev_dst, "", score_limit)
         else:
-            print("debug2")
             for plt in possible_last_tokens:
                 if plt not in node.children:
                     continue

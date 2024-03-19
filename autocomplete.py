@@ -6,7 +6,7 @@ from index_builder import get_index
 
 EWTSCONVERTER = pyewts.pyewts()
 
-logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
 
 def get_proper_start_i(query_s):
     """
@@ -47,13 +47,13 @@ def auto_complete(query_s, res_limit=10, index_name="bo_general"):
     base_res_str = ""
     if first_c_idx > 0:
         base_res_str = "<ignored>" + query_s[:first_c_idx] + "</ignored>"
-    base_res_str += "".join(query_tokens)
     lng = "bo" if index_name == "bo_general" else "bo-x-ewts"
     for s in suggestions:
-        encoded_suffix, encoded_category, score = s
+        encoded_suffix, encoded_category, score, encoded_prefix, lev_dst = s
         category = index.cat_encoder.decode(encoded_category)
+        prefix = index.encoder.decode_string(encoded_prefix)
         suffix = index.encoder.decode_string(encoded_suffix)
-        res_str = base_res_str
+        res_str = base_res_str + prefix
         if suffix:
             res_str += "<suggested>" + suffix + "</suggested>"
         res.append({

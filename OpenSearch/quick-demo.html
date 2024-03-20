@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OS Autosuggest</title>
+    <style>
+        #searchInput {
+            width: 500px; /* Set width of the input field and suggestions box */
+        }
+        #suggestions {
+            width: 485px; /* Set width of the input field and suggestions box */
+        }
+        #suggestions {
+            border: 1px solid #ddd;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none; /* Hide initially */
+            background-color: #f9f9f9;
+        }
+        .category-style {
+            color: #888888; /* Grey color */
+            font-style: italic; /* Italic font style */
+            font-size: 0.9em; /* Slightly smaller font */
+        }
+    </style>
+</head>
+<body>
+
+<input type="text" id="searchInput" placeholder="Type to search...">
+<div id="suggestions"></div>
+
+<script>
+document.getElementById('searchInput').addEventListener('input', function(e) {
+    const searchString = e.target.value;
+    
+    if (searchString.length > 0) {
+        fetch('http://localhost:5000/autosuggest', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({query: searchString})
+        })
+        .then(response => response.json())
+        .then(data => {
+            const suggestionsBox = document.getElementById('suggestions');
+            suggestionsBox.innerHTML = ''; // Clear previous suggestions
+            suggestionsBox.style.display = 'block'; // Show the suggestions box
+            if (data.length > 0) {
+                data.forEach(suggestion => {
+                    const div = document.createElement('div');
+                    div.style.display = 'flex';
+                    div.style.justifyContent = 'space-between';
+                    div.style.alignItems = 'center';
+
+                    const resSpan = document.createElement('span');
+                    resSpan.innerHTML = suggestion.res.replace(/<suggested>/g, '<b>').replace(/<\/suggested>/g, '</b>'); // Replaces <suggested> with <b>
+                    div.appendChild(resSpan);
+
+                    const categorySpan = document.createElement('span');
+                    categorySpan.textContent = suggestion.category; // Adds the category at the end
+                    categorySpan.style.marginLeft = 'auto'; // Aligns the category to the right
+                    categorySpan.className = 'category-style'; // Apply styles for category
+                    div.appendChild(categorySpan);
+
+                    suggestionsBox.appendChild(div);
+                });
+            } else {
+                suggestionsBox.style.display = 'none'; // Hide if no suggestions
+            }
+        })
+        .catch(error => console.error('Error fetching suggestions:', error));
+    } else {
+        document.getElementById('suggestions').style.display = 'none'; // Hide if input is cleared
+    }
+});
+</script>
+
+</body>
+</html>

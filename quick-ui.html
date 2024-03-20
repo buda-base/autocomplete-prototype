@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Autosuggest Demo</title>
+    <title>Trie Autosuggest</title>
     <style>
         #suggestions {
             border: 1px solid #ddd;
@@ -41,7 +41,7 @@ document.getElementById('searchInput').addEventListener('input', debounce(functi
     const searchString = e.target.value;
 
     if (searchString.length > 0) {
-        fetch('http://localhost:5000/autosuggest', { // ADJUST PORT IF NECESSARY
+        fetch('http://localhost:5000/autosuggest', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({query: searchString})

@@ -1,7 +1,14 @@
 # autocomplete-prototype/OpenSearch
 
-### Password  
-The scripts expect env variable OPENSEARCH_PW to contain the Opensearch password
+### Security  
+The scripts expect the env variable OPENSEARCH_PW to contain the Opensearch password
+SSL has been disabled in both the indexer.py and autosuggest-flask.py.  After enabling it with OpenSearch, modify both Python files at
+```os_client = OpenSearch(
+    [{'host': 'localhost', 'port': 9200}],
+    http_auth=('admin', os.getenv('OPENSEARCH_PW')),
+    use_ssl=False,
+    verify_certs=False
+)```
 
 ### Indexing  
 Copy input_ewts_categories.csv in the script directory  

@@ -1,7 +1,7 @@
 # autocomplete-prototype/OpenSearch
 
 ### Security  
-The scripts expect the env variable OPENSEARCH_PW to contain the Opensearch password
+The scripts expect the env variable OPENSEARCH_PW to contain the Opensearch password  
 SSL has been disabled in both the indexer.py and autosuggest-flask.py.  After enabling it with OpenSearch, modify both Python files at
 ```
 os_client = OpenSearch(
@@ -26,6 +26,7 @@ Open quick-demo.html in a browser and type in Wylie or Tibetan Unicode
 Data formats for input and output are the same as what is already implemented in library-dev.bdrc.io
 
 ### Example Wylie with a typo
+```
 {'query': 'mdo sde phax po'}
 [
     {
@@ -34,9 +35,10 @@ Data formats for input and output are the same as what is already implemented in
         "res": "mdo sde phal po<suggested> che</suggested>"
     }
 ]
-
+```
 ### Example Tibetan Unicode
 Unicode does not use the "suggested" tags
+```
 {'query': 'མདོ་སྡེ་ཕལ་པོ'}
 [
     {
@@ -45,6 +47,6 @@ Unicode does not use the "suggested" tags
         "res": "\u0f58\u0f51\u0f7c\u0f0b\u0f66\u0fa1\u0f7a\u0f0b\u0f55\u0f63\u0f0b\u0f54\u0f7c\u0f0b\u0f46\u0f7a"
     }
 ]
-
+```
 ### Note
 The "ignore" tag is not used 

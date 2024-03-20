@@ -92,7 +92,6 @@ def reindex():
 # docker run -it -p 9200:9200 -p 9600:9600 -e OPENSEARCH_INITIAL_ADMIN_PASSWORD="bdrcBDRC/0" -e "discovery.type=single-node" -e DISABLE_SECURITY_PLUGIN=true  --name opensearch-node opensearchproject/opensearch:latest
 os_client = OpenSearch(
     [{'host': 'localhost', 'port': 9200}],
-    http_compress=True,
     basic_auth=('admin', os.getenv('OPENSEARCH_PW')),
     use_ssl=False,
     verify_certs=False

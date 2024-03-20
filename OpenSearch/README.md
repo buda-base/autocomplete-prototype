@@ -8,7 +8,8 @@ SSL has been disabled in both the indexer.py and autosuggest-flask.py.  After en
     http_auth=('admin', os.getenv('OPENSEARCH_PW')),
     use_ssl=False,
     verify_certs=False
-)```
+)
+```
 
 ### Indexing  
 Copy input_ewts_categories.csv in the script directory  

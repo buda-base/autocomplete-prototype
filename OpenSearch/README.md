@@ -3,7 +3,8 @@
 ### Security  
 The scripts expect the env variable OPENSEARCH_PW to contain the Opensearch password
 SSL has been disabled in both the indexer.py and autosuggest-flask.py.  After enabling it with OpenSearch, modify both Python files at
-```os_client = OpenSearch(
+```
+os_client = OpenSearch(
     [{'host': 'localhost', 'port': 9200}],
     http_auth=('admin', os.getenv('OPENSEARCH_PW')),
     use_ssl=False,

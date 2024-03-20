@@ -59,8 +59,11 @@ def search_elastic(keyword, fuzzy):
     response = es.search(index='autosuggest', body=search_body, _source=['suggestion', 'category'])
     return response['hits']['hits']
 
-@app.route('/<keyword>')
-def autosuggest(keyword):
+@app.route('/autosuggest', methods=['POST'])
+def autosuggest():
+    data = request.json
+    keyword = data['query']
+    
     keyword = keyword.lower()
     # tibetan unicode
     is_tibetan = 0

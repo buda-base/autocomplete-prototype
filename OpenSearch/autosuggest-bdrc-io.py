@@ -1,6 +1,7 @@
 from flask import Flask, request
 from flask_cors import CORS
 import re, json, requests
+import os
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all domains on all routes
@@ -47,8 +48,8 @@ def do_search(keyword, fuzzy):
         search_body['query']['bool']['must_not'] = {'match': {'typed': keyword}}
 
     headers = {'Content-Type': 'application/json'}
-    auth = ('user', 'password')
-    url = 'http://opensearch.bdrc.io/autosuggest/_search'
+    auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
+    url = os.environ['OPENSEARCH_URL']+'/autosuggest/_search'
     response = requests.post(url, headers=headers, auth=auth, json=search_body, timeout=1, verify=False)
     return response.json()['hits']['hits']
 
@@ -64,7 +65,7 @@ def autosuggest():
         from pyewts import pyewts
         converter = pyewts()
         keyword = converter.toWylie(keyword)
-        keyword = re.sub('(\S)a$', r'\1', keyword)
+        keyword = re.sub(r'(\S)a$', r'\1', keyword)
         is_tibetan = 1
     else:
         is_tibetan = 0

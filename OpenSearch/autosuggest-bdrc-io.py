@@ -76,7 +76,6 @@ def autosuggest():
 
     result = []
     for hit in response[:10]:
-        category = hit['_source'].get('category', '')
         if is_tibetan:
             lang = 'bo'
             suggestion = converter.toUnicode(hit['_source']['suggestion'])
@@ -84,7 +83,7 @@ def autosuggest():
             lang = 'bo-x-ewts'
             match = '?.?'.join(x for x in keyword)
             suggestion = re.sub(f'^(.{match})(.*)$', r'\1<suggested>\2</suggested>', hit['_source']['suggestion'])
-        result.append({'category': category, 'lang': lang, 'res': suggestion})
+        result.append({'lang': lang, 'res': suggestion})
 
     print(json.dumps(result, indent=4))
     return json.dumps(result)

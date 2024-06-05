@@ -4,9 +4,7 @@ import pyewts
 
 # Configuration for the OpenSearch endpoint
 os_host = 'https://opensearch.bdrc.io'
-auth = ('user', 'password')
-if auth[1] == 'password':
-    exit('Add a proper password for auth')
+auth = (os.getenv('OPENSEARCH_USER'), os.getenv('OPENSEARCH_PASSWORD'))
 headers = {'Content-Type': 'application/json'}
 
 def create_mappings(index_name='autosuggest'):
@@ -37,10 +35,6 @@ def create_mappings(index_name='autosuggest'):
                 },
                 "priority": {
                     "type": "integer"
-                },
-                "category": {
-                    "type": "text",
-                    "index": False
                 }
             }
         }
@@ -60,15 +54,15 @@ def reindex():
     with open('input_ewts_categories.csv', 'r') as file:
         for line in file:
             try:
-                suggestion, priority, category = re.findall('"(.*?)"', line)
+                suggestion, priority, dummy = re.findall('"(.*?)"', line) # dummy because the CSV still has "category" although removed from index
             except:
                 #print(f'Cannot read: {line}')
                 continue
             suggestion = re.sub('/$', '', suggestion)
-            if suggestion + category in doubles:
+            if suggestion in doubles:
                 continue
-            doubles[suggestion + category] = 1
-            data.append({'suggestion': suggestion, 'priority': priority, 'category': category})
+            doubles[suggestion] = 1
+            data.append({'suggestion': suggestion, 'priority': priority})
     put = []
 
     for line in sorted(data, key=lambda x: int(x['priority']), reverse=True):
@@ -85,13 +79,15 @@ def reindex():
             else:
                 ten_max[prefix] = 1
             put.append({'index': {'_index': 'autosuggest'}})
-            put.append({'typed': prefix, 'suggestion': line['suggestion'], 'length': length, 'priority': line['priority'], 'category': line['category']})
+            put.append({'typed': prefix, 'suggestion': line['suggestion'], 'length': length, 'priority': line['priority']})
             if len(put) >= 5000:
                 response = requests.post(f"{os_host}/_bulk", auth=auth, headers={'Content-Type': 'application/x-ndjson'}, data='\n'.join(json.dumps(p) for p in put) + '\n', verify=True)
                 if response.status_code != 200:
-                    print(f"Failed bulk request: {response.text}")
+                    print(f"Failed bulk request: {response.text}   {response.status_code}")
+                    #input(put)
                     break
-                print('\r' + str(int(100 * progress/len(data)) + 1) + '%', end='')
+                #print('\r' + str(int(100 * progress/len(data)) + 1) + '%', end='')
+                print(str(int(100 * progress/len(data)) + 1) + '%')
                 put = []
     if put:
         response = requests.post(f"{os_host}/_bulk", auth=auth, headers={'Content-Type': 'application/x-ndjson'}, data='\n'.join(json.dumps(p) for p in put) + '\n', verify=True)

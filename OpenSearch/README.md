@@ -1,16 +1,11 @@
 # autocomplete-prototype/OpenSearch
 
-### Security  
-The scripts expect the env variable OPENSEARCH_PW to contain the Opensearch password  
-SSL has been disabled in both the indexer.py and autosuggest-flask.py.  After enabling it with OpenSearch, modify both Python files at
-```
-os_client = OpenSearch(
-    [{'host': 'localhost', 'port': 9200}],
-    http_auth=('admin', os.getenv('OPENSEARCH_PW')),
-    use_ssl=False,
-    verify_certs=False
-)
-```
+### search_bdrc.py
+search_bdrc.py now contains both autosuggest and the main search.
+
+### Env variables 
+The scripts expect the env variables OPENSEARCH_URL, OPENSEARCH_USER and OPENSEARCH_PASSWORD. 
+The URL is https://opensearch.bdrc.io
 
 ### Indexing  
 Copy input_ewts_categories.csv in the script directory  

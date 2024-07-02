@@ -41,7 +41,7 @@ Output is the usual opensearch output.
 
 The API modifies the opensearch query in the following way:
 - for IP addresses in China, it filters on document with the field `"ric"` not set to `true`
-- it replaces each `"query"` object of type `bdrc-query"` by a custom query
+- It replaces the object "bdrc-query" by a custom query.
 
 For example
 
@@ -73,7 +73,7 @@ GET bdrc_prod/_search
         }
       },
       "query": {
-        "bdrc-api": "skyes rabs kyi sa bcad"
+        "bdrc-query": "skyes rabs kyi sa bcad"
       }
     }
   }

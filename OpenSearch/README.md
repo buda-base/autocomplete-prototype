@@ -1,47 +1,89 @@
 # autocomplete-prototype/OpenSearch
 
-### search_bdrc.py
-search_bdrc.py now contains both autosuggest and the main search.
+### Updated files
+- `search_bdrc.py` has both autosuggest and search
+- `indexer-autosuggest.py` replaces `remote-indexer-autocomplete.py`
 
-### Env variables 
+### ENV variables 
 The scripts expect the env variables OPENSEARCH_URL, OPENSEARCH_USER and OPENSEARCH_PASSWORD. 
 The URL is https://opensearch.bdrc.io
 
-### Indexing  
-Copy input_ewts_categories.csv in the script directory  
-python3 indexer.py
+### Run
 
-### Autosuggest Flask  
-python3 autosuggest-flask.py
+`python3 search_bdrc.py`
 
-### Test
-Open quick-demo.html in a browser and type in Wylie or Tibetan Unicode
+### /autosuggest
 
-### Develop
-Data formats for input and output are the same as what is already implemented in library-dev.bdrc.io
+Input (POST or GET):
 
-### Example Wylie with a typo
+```json
+{
+  "query": "skyes rabs kyi sa b"
+}
 ```
-{'query': 'mdo sde phax po'}
+
+output:
+
+```json
 [
-    {
-        "category": "Topic",
-        "lang": "bo-x-ewts",
-        "res": "mdo sde phal po<suggested> che</suggested>"
-    }
+  {
+    "lang": "bo_x_ewts",
+    "res": "skyes rabs kyi sa b<suggested>cad</suggested>"
+  }
 ]
 ```
-### Example Tibetan Unicode
-Unicode does not use the "suggested" tags
-```
-{'query': 'མདོ་སྡེ་ཕལ་པོ'}
-[
-    {
-        "category": "Topic",
-        "lang": "bo",
-        "res": "\u0f58\u0f51\u0f7c\u0f0b\u0f66\u0fa1\u0f7a\u0f0b\u0f55\u0f63\u0f0b\u0f54\u0f7c\u0f0b\u0f46\u0f7a"
+
+### /search
+
+Input is any opensearch query.
+
+Output is the usual opensearch output.
+
+The API modifies the opensearch query in the following way:
+- for IP addresses in China, it filters on document with the field `"ric"` not set to `true`
+- it replaces each `"query"` object of type `bdrc-query"` by a custom query
+
+For example
+
+```json
+GET bdrc_prod/_search
+{
+  "from": 0,
+  "size": 0,
+  "aggs": {
+    "type": {
+      "terms": {
+        "field": "type"
+      }
     }
-]
+  },
+  "highlight": {
+    "fields": {
+      "prefLabel_bo_x_ewts": {},
+      "altLabel_bo_x_ewts": {},
+      "seriesName_bo_x_ewts": {},
+      "seriesName_en": {}
+    }
+  },
+  "query": {
+    "function_score": {
+      "script_score": {
+        "script": {
+          "id": "bdrc-score"
+        }
+      },
+      "query": {
+        "bdrc-api": "skyes rabs kyi sa bcad"
+      }
+    }
+  }
+}
 ```
-### Note
-The "ignore" tag is not used 
+
+### Index autosuggest
+
+Autosuggest has been indexed, but if you want to do reindex, first download the main search index from bdrc_prod with
+`python3 get-index.py > index.json`
+Then index to bdrc_autosuggest with
+`indexer-autosuggest.py´
+This deletes the old index, creates mappings and then indexes everything.

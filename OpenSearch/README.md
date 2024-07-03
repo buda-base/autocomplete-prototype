@@ -107,37 +107,6 @@ GET bdrc_prod/_search
                 }
             },
             "query": {
-                "bdrc-query": "dpe bsdur ma"
-            }
-        }
-    }
-}
-{
-    "from": 0,
-    "size": 10,
-    "aggs": {
-        "type": {
-            "terms": {
-                "field": "type"
-            }
-        }
-    },
-    "highlight": {
-        "fields": {
-            "prefLabel_bo_x_ewts": {},
-            "altLabel_bo_x_ewts": {},
-            "seriesName_bo_x_ewts": {},
-            "seriesName_en": {}
-        }
-    },
-    "query": {
-        "function_score": {
-            "script_score": {
-                "script": {
-                    "id": "bdrc-score"
-                }
-            },
-            "query": {
                 "dis_max": {
                     "queries": [
                         {

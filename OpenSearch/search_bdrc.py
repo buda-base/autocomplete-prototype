@@ -102,26 +102,13 @@ def phrase_match_json(query):
     query_words = re.split('[ /_]+', query)
     weight_fields = get_fields('with_weights')
     phrase_query = {
-        "from": 0,
-        "size": 3,
-        "explain": False,
-        "query": {
-            "function_score": {
-                "query": {
-                    "dis_max": {
-                        "queries": []
-                    }
-                },
-                "script_score": {
-                    "script": {
-                        "source": get_script()
-                    }
-                }
-            }
+        "dis_max": {
+            "queries": []
         }
     }
 
-    # add the full query to "should" with a boost
+    # collect 'queries'
+    # 1. full query perfect match
     should = {
         'bool': {
             'must': [
@@ -136,9 +123,9 @@ def phrase_match_json(query):
             'boost': 1.1
         }
     }
-    phrase_query['query']['function_score']['query']['dis_max']['queries'].append(should)
+    phrase_query['dis_max']['queries'].append(should)
 
-    # create all two-phrase combinations of the query and append to "should"
+    # 2. create all two-phrase combinations of the query and append to "should"
     number_of_tokens = len(query_words)
     if number_of_tokens > 2:
         for cut in range(1, number_of_tokens):
@@ -155,7 +142,7 @@ def phrase_match_json(query):
                         }
                         })
             # append the pair to "should"
-            phrase_query['query']['function_score']['query']['dis_max']['queries'].append({'bool': {'must': must}})
+            phrase_query['dis_max']['queries'].append({'bool': {'must': must}})
 
     #print(json.dumps(phrase_query, indent=2))
     return(phrase_query)
@@ -308,29 +295,30 @@ def id_json_search(query):
     #print(json.dumps(os_json, indent=4))
     return os_json
 
-# find user-typed query from OS json
-def get_keywords(json_data):
-    # user keywords come directly as a string
-    if 'query' in json_data and isinstance(json_data['query'], str):
-        return json_data['query']
+def format_query(data):
+    #print(json.dumps(data, indent=4))
+    # get query string from searchkit json
+    query = data['query']['function_score']['query']['bdrc-query']
 
-    # user keywords are in an opensearch json
-    def search_dict(d):
-        for k, v in d.items():
-            if k == 'query' and isinstance(v, str):
-                return v
-            elif isinstance(v, dict):
-                result = search_dict(v)
-                if result:
-                    return result
-            elif isinstance(v, list):
-                for item in v:
-                    if isinstance(item, dict):
-                        result = search_dict(item)
-                        if result:
-                            return result
-        return None
-    return search_dict(json_data)
+    # clean up query string
+    query = query.strip()
+    query, is_tibetan = tibetan(query)
+    if not is_tibetan:
+        query = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query)
+    query = stopwords(query)
+
+    # id search
+    if re.search('(\S\d)', query):
+        data = id_json_search(query)
+    # normal search
+    else:
+        data['query']['function_score']['query'] = phrase_match_json(query)
+    
+    # insert script
+    #data['query']['function_score']['script_score']['script']['source'] = get_script()
+
+    return data
+
 
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest():
@@ -370,27 +358,13 @@ def autosuggest():
 def normal_search():
     data = request.json
 
-    # this script accepts the keywords either directly as a string in data['query']
-    # or finds them from an opensearch query json typically created with searchkit
-    query = get_keywords(data)
+    os_json = format_query(data)
+    print(json.dumps(os_json, indent=4))
 
-    query = query.strip()
-    query, is_tibetan = tibetan(query)
-    if not is_tibetan:
-        query = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query)
-    query = stopwords(query)
-
-    # id search
-    if re.search('(\S\d)', query):
-        os_json = id_json_search(query)
-        #print(json.dumps(os_json, indent=4))
-        r = do_search(os_json, 'bdrc_prod')
-    # normal search
-    else:
-        os_json = phrase_match_json(query)
-        r = do_search(os_json, 'bdrc_prod')
-    #print(json.dumps(r, indent=4))
-    return r
+    results = do_search(os_json, 'bdrc_prod')
+    #print(json.dumps(results, indent=4))
+    
+    return results
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -125,7 +125,7 @@ def do_search(os_json, index):
     r = requests.post(url, headers=headers, auth=auth, json=os_json, timeout=1, verify=False)
     return r.json()
 
-def ndjson_to_bytes(jsons):
+def jsons_to_ndjsonbytes(jsons):
     fp = io.BytesIO()  # file-like object
     with jsonlines.Writer(fp) as writer:
         for j in jsons:
@@ -135,10 +135,11 @@ def ndjson_to_bytes(jsons):
     return b
 
 def do_msearch(os_jsons, index):
+    ndjson = jsons_to_ndjsonbytes(os_jsons)
     headers = {'Content-Type': 'application/x-ndjson'}
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'
-    r = requests.post(url, headers=headers, auth=auth, data=ndjson_to_bytes(os_jsons), timeout=1, verify=False)
+    r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=1, verify=False)
     return r.content
 
 def tibetan(query):
@@ -274,11 +275,11 @@ def format_query(data):
     else:
         phrase_json = phrase_match_json(query)
 
-        print('\n\ndata before\n\n', json.dumps(data, indent=4))
+        #print('\n\ndata before\n\n', json.dumps(data, indent=4))
 
         data = get_or_replace_bdrc_query(data, phrase_json)
 
-        print('\n\ndata after\n\n', json.dumps(data, indent=4))
+        #print('\n\ndata after\n\n', json.dumps(data, indent=4))
 
     return data
 
@@ -333,9 +334,11 @@ def normal_search():
 @app.route('/msearch', methods=['POST', 'GET'])
 def normal_msearch():
     jsons = []
-    reader = jsonlines.Reader(io.BytesIO(request.data))
-    for obj in reader:
-        jsons.append(format_query(obj))
+    fp = io.BytesIO(request.data)
+    with jsonlines.Reader(fp) as reader:
+        for obj in reader:
+            jsons.append(format_query(obj))
+    fp.close()
     results = do_msearch(jsons, 'bdrc_prod')
     #print(json.dumps(results, indent=4))
     

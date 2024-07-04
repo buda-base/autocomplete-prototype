@@ -260,65 +260,76 @@ def id_json_search(query):
         id_code = query
 
     os_json = {
-        "query": {
-            "bool": {
-                "must": [
-                    {
-                        "bool": {
-                            "should": [
-                                {
-                                    "term": {
-                                        "_id": id_code
-                                    }
-                                },
-                                {
-                                    "term": {
-                                        "other_id": id_code
-                                    }
-                                },
-                                {
-                                    "term": {
-                                        "graphs": id_code
-                                    }
+        "bool": {
+            "must": [
+                {
+                    "bool": {
+                        "should": [
+                            {
+                                "term": {
+                                    "_id": id_code
                                 }
-                            ],
-                            "minimum_should_match": 1
-                        }
+                            },
+                            {
+                                "term": {
+                                    "other_id": id_code
+                                }
+                            },
+                            {
+                                "term": {
+                                    "graphs": id_code
+                                }
+                            }
+                        ],
+                        "minimum_should_match": 1
                     }
-                ]
-            }
+                }
+            ]
         }
     }
     if match_phrases:
-        os_json['query']['bool']['must'].append({'bool': {'should': match_phrases, 'minimum_should_match': 1}})
+        os_json['bool']['must'].append({'bool': {'should': match_phrases, 'minimum_should_match': 1}})
 
     #print(json.dumps(os_json, indent=4))
     return os_json
 
-def format_query(data):
-    #print(json.dumps(data, indent=4))
-    # get query string from searchkit json
-    query = data['query']['function_score']['query']['bdrc-query']
-
-    # clean up query string
-    query = query.strip()
-    query, is_tibetan = tibetan(query)
+def get_query_obj(query_str):
+    query_str = query_str.strip()
+    query_str, is_tibetan = tibetan(query_str)
     if not is_tibetan:
-        query = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query)
-    query = stopwords(query)
+        query_str = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str)
+    query_str = stopwords(query_str)
 
     # id search
-    if re.search('(\S\d)', query):
-        data = id_json_search(query)
+    if re.search(r'(\S\d)', query_str):
+        return id_json_search(query_str)
     # normal search
     else:
-        data['query']['function_score']['query'] = phrase_match_json(query)
-    
-    # insert script
-    #data['query']['function_score']['script_score']['script']['source'] = get_script()
+        return phrase_match_json(query_str)
 
+def format_query_rec(query):
+    if isinstance(query, list):
+        res = []
+        for item in query:
+            res.append(format_query_rec(item))
+        return res
+    # we assume query is an object
+    res = {}
+    for key, value in query.items():
+        if key == "bdrc-query":
+            repl = get_query_obj(value)
+            for key_repl, value_repl in repl.items():
+                res[key_repl] = value_repl
+        elif isinstance(value, dict) or isinstance(value, list):
+            res[key] = format_query_rec(value)
+        else:
+            res[key] = value
+    return res
+
+def format_query(data):
+    query = format_query_rec(data["query"])
+    data["query"] = query
     return data
-
 
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest():
@@ -366,5 +377,44 @@ def normal_search():
     
     return results
 
+def test_format_query():
+    query_json_str = """
+    {
+       "query":{
+          "function_score":{
+             "script_score":{
+                "script":{
+                   "id":"bdrc-score"
+                }
+             },
+             "query":{
+                "bool":{
+                   "filter":[
+                      {
+                         "bool":{
+                            "should":[
+                               {
+                                  "range":{
+                                     "etext_quality":{
+                                        "gte":"3.99",
+                                        "lte":"4.01"
+                                     }
+                                  }
+                               }
+                            ]
+                         }
+                      }
+                   ],
+                   "bdrc-query":"spyod 'jug"
+                }
+             }
+          }
+       }
+    }
+    """
+    query = json.loads(query_json_str)
+    print(json.dumps(format_query_rec(query)))
+
 if __name__ == '__main__':
+    #test_format_query()
     app.run(debug=True, port=5000)

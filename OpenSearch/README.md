@@ -49,7 +49,7 @@ For example
 GET bdrc_prod/_search
 {
   "from": 0,
-  "size": 0,
+  "size": 10,
   "aggs": {
     "type": {
       "terms": {
@@ -73,13 +73,183 @@ GET bdrc_prod/_search
         }
       },
       "query": {
-        "bdrc-query": "skyes rabs kyi sa bcad"
+        "bdrc-query": "dpe bsdur ma"
       }
     }
   }
 }
 ```
-
+#### Modified query
+```
+{
+    "from": 0,
+    "size": 10,
+    "aggs": {
+        "type": {
+            "terms": {
+                "field": "type"
+            }
+        }
+    },
+    "highlight": {
+        "fields": {
+            "prefLabel_bo_x_ewts": {},
+            "altLabel_bo_x_ewts": {},
+            "seriesName_bo_x_ewts": {},
+            "seriesName_en": {}
+        }
+    },
+    "query": {
+        "function_score": {
+            "script_score": {
+                "script": {
+                    "id": "bdrc-score"
+                }
+            },
+            "query": {
+                "dis_max": {
+                    "queries": [
+                        {
+                            "bool": {
+                                "must": [
+                                    {
+                                        "multi_match": {
+                                            "type": "phrase",
+                                            "query": "dpe bsdur ma",
+                                            "fields": [
+                                                "altLabel_bo_x_ewts^0.6",
+                                                "altLabel_en^0.6",
+                                                "authorshipStatement_bo_x_ewts^0.005",
+                                                "authorshipStatement_en^0.005",
+                                                "comment^0.0001",
+                                                "comment_bo_x_ewts^0.0001",
+                                                "comment_en^0.0001",
+                                                "prefLabel_bo_x_ewts^1",
+                                                "prefLabel_en^1",
+                                                "publisherLocation_bo_x_ewts^0.01",
+                                                "publisherLocation_en^0.01",
+                                                "publisherName_bo_x_ewts^0.01",
+                                                "publisherName_en^0.01",
+                                                "seriesName_bo_x_ewts^0.1",
+                                                "seriesName_en^0.1"
+                                            ]
+                                        }
+                                    }
+                                ],
+                                "boost": 1.1
+                            }
+                        },
+                        {
+                            "bool": {
+                                "must": [
+                                    {
+                                        "multi_match": {
+                                            "type": "phrase",
+                                            "query": "dpe",
+                                            "fields": [
+                                                "altLabel_bo_x_ewts^0.6",
+                                                "altLabel_en^0.6",
+                                                "authorshipStatement_bo_x_ewts^0.005",
+                                                "authorshipStatement_en^0.005",
+                                                "comment^0.0001",
+                                                "comment_bo_x_ewts^0.0001",
+                                                "comment_en^0.0001",
+                                                "prefLabel_bo_x_ewts^1",
+                                                "prefLabel_en^1",
+                                                "publisherLocation_bo_x_ewts^0.01",
+                                                "publisherLocation_en^0.01",
+                                                "publisherName_bo_x_ewts^0.01",
+                                                "publisherName_en^0.01",
+                                                "seriesName_bo_x_ewts^0.1",
+                                                "seriesName_en^0.1"
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "multi_match": {
+                                            "type": "phrase",
+                                            "query": "bsdur ma",
+                                            "fields": [
+                                                "altLabel_bo_x_ewts^0.6",
+                                                "altLabel_en^0.6",
+                                                "authorshipStatement_bo_x_ewts^0.005",
+                                                "authorshipStatement_en^0.005",
+                                                "comment^0.0001",
+                                                "comment_bo_x_ewts^0.0001",
+                                                "comment_en^0.0001",
+                                                "prefLabel_bo_x_ewts^1",
+                                                "prefLabel_en^1",
+                                                "publisherLocation_bo_x_ewts^0.01",
+                                                "publisherLocation_en^0.01",
+                                                "publisherName_bo_x_ewts^0.01",
+                                                "publisherName_en^0.01",
+                                                "seriesName_bo_x_ewts^0.1",
+                                                "seriesName_en^0.1"
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "bool": {
+                                "must": [
+                                    {
+                                        "multi_match": {
+                                            "type": "phrase",
+                                            "query": "dpe bsdur",
+                                            "fields": [
+                                                "altLabel_bo_x_ewts^0.6",
+                                                "altLabel_en^0.6",
+                                                "authorshipStatement_bo_x_ewts^0.005",
+                                                "authorshipStatement_en^0.005",
+                                                "comment^0.0001",
+                                                "comment_bo_x_ewts^0.0001",
+                                                "comment_en^0.0001",
+                                                "prefLabel_bo_x_ewts^1",
+                                                "prefLabel_en^1",
+                                                "publisherLocation_bo_x_ewts^0.01",
+                                                "publisherLocation_en^0.01",
+                                                "publisherName_bo_x_ewts^0.01",
+                                                "publisherName_en^0.01",
+                                                "seriesName_bo_x_ewts^0.1",
+                                                "seriesName_en^0.1"
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "multi_match": {
+                                            "type": "phrase",
+                                            "query": "ma",
+                                            "fields": [
+                                                "altLabel_bo_x_ewts^0.6",
+                                                "altLabel_en^0.6",
+                                                "authorshipStatement_bo_x_ewts^0.005",
+                                                "authorshipStatement_en^0.005",
+                                                "comment^0.0001",
+                                                "comment_bo_x_ewts^0.0001",
+                                                "comment_en^0.0001",
+                                                "prefLabel_bo_x_ewts^1",
+                                                "prefLabel_en^1",
+                                                "publisherLocation_bo_x_ewts^0.01",
+                                                "publisherLocation_en^0.01",
+                                                "publisherName_bo_x_ewts^0.01",
+                                                "publisherName_en^0.01",
+                                                "seriesName_bo_x_ewts^0.1",
+                                                "seriesName_en^0.1"
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}
+```
 ### Index autosuggest
 
 Autosuggest has been indexed, but if you want to do reindex, first download the main search index from bdrc_prod with

@@ -252,7 +252,11 @@ def replace_bdrc_query(json_obj, replacement):
 def format_query(data):
     #print(json.dumps(data, indent=4))
     # get query string from searchkit json
-    query = data["query"]["function_score"]["query"]["bool"]["must"][0]["multi_match"]["query"]
+    query = None
+    try:
+        query = data["query"]["function_score"]["query"]["bool"]["must"][0]["multi_match"]["query"]
+    except KeyError:
+        return data
 
     # clean up query string
     query = query.strip()

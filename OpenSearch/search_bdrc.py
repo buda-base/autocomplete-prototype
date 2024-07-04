@@ -122,7 +122,7 @@ def do_search(os_json, index):
     headers = {'Content-Type': 'application/json'}
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_search'
-    r = requests.post(url, headers=headers, auth=auth, json=os_json, timeout=1, verify=False)
+    r = requests.post(url, headers=headers, auth=auth, json=os_json, timeout=5, verify=False)
     return r.json()
 
 def jsons_to_ndjsonbytes(jsons):
@@ -139,7 +139,7 @@ def do_msearch(os_jsons, index):
     headers = {'Content-Type': 'application/x-ndjson'}
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'
-    r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=1, verify=False)
+    r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=5, verify=False)
     return r.content
 
 def tibetan(query):

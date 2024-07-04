@@ -3,6 +3,8 @@ from requests.auth import HTTPBasicAuth
 from flask import Flask, request
 from flask_cors import CORS
 import os
+import jsonlines
+import io
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all domains on all routes
@@ -123,6 +125,22 @@ def do_search(os_json, index):
     r = requests.post(url, headers=headers, auth=auth, json=os_json, timeout=1, verify=False)
     return r.json()
 
+def ndjson_to_bytes(jsons):
+    fp = io.BytesIO()  # file-like object
+    with jsonlines.Writer(fp) as writer:
+        for j in jsons:
+            writer.write(j)
+    b =  fp.getvalue()
+    fp.close()
+    return b
+
+def do_msearch(os_jsons, index):
+    headers = {'Content-Type': 'application/x-ndjson'}
+    auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
+    url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'
+    r = requests.post(url, headers=headers, auth=auth, data=ndjson_to_bytes(os_jsons), timeout=1, verify=False)
+    return r.content
+
 def tibetan(query):
     if re.search(r'[\u0F00-\u0FFF]', query):
         from pyewts import pyewts
@@ -237,6 +255,8 @@ def format_query(data):
     #print(json.dumps(data, indent=4))
     # get query string from searchkit json
     query = get_or_replace_bdrc_query(data)
+    if query is None:
+        return data
 
     # clean up query string
     query = query.strip()
@@ -306,6 +326,18 @@ def normal_search():
 
     results = do_search(os_json, 'bdrc_prod')
     print(json.dumps(results, indent=4))
+    
+    return results
+
+# normal search
+@app.route('/msearch', methods=['POST', 'GET'])
+def normal_msearch():
+    jsons = []
+    reader = jsonlines.Reader(io.BytesIO(request.data))
+    for obj in reader:
+        jsons.append(format_query(obj))
+    results = do_msearch(jsons, 'bdrc_prod')
+    #print(json.dumps(results, indent=4))
     
     return results
 

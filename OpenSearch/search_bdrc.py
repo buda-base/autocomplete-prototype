@@ -3,6 +3,8 @@ from requests.auth import HTTPBasicAuth
 from flask import Flask, request
 from flask_cors import CORS
 import os
+import jsonlines
+import io
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all domains on all routes
@@ -120,8 +122,25 @@ def do_search(os_json, index):
     headers = {'Content-Type': 'application/json'}
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_search'
-    r = requests.post(url, headers=headers, auth=auth, json=os_json, timeout=1, verify=False)
+    r = requests.post(url, headers=headers, auth=auth, json=os_json, timeout=5, verify=False)
     return r.json()
+
+def jsons_to_ndjsonbytes(jsons):
+    fp = io.BytesIO()  # file-like object
+    with jsonlines.Writer(fp) as writer:
+        for j in jsons:
+            writer.write(j)
+    b =  fp.getvalue()
+    fp.close()
+    return b
+
+def do_msearch(os_jsons, index):
+    ndjson = jsons_to_ndjsonbytes(os_jsons)
+    headers = {'Content-Type': 'application/x-ndjson'}
+    auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
+    url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'
+    r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=5, verify=False)
+    return r.content
 
 def tibetan(query):
     if re.search(r'[\u0F00-\u0FFF]', query):
@@ -216,24 +235,29 @@ def id_json_search(query):
     #print(json.dumps(os_json, indent=4))
     return os_json
 
-def find_bdrc_query_rec(json_obj):
-    if 'query' in json_obj and isinstance(json_obj['query'], str):
-        return json_obj['query']
+def get_or_replace_bdrc_query(json_obj, replacement=None):
+    if 'bdrc-query' in json_obj:
+        value = json_obj.pop('bdrc-query')
+        if replacement is not None:
+            json_obj['bdrc-query'] = replacement
+            return json_obj
+        return value
     for key, value in json_obj.items():
         if isinstance(value, dict):
-            result = find_bdrc_query_rec(value)
+            result = get_or_replace_bdrc_query(value, replacement)
             if result is not None:
+                if replacement is not None:
+                    return json_obj
                 return result
     return None
 
-def replace_bdrc_query(json_obj, replacement):
-    json_obj["query"]["function_score"]["query"]["bool"]["must"] = [replacement]
-    return json_obj
 
 def format_query(data):
     #print(json.dumps(data, indent=4))
     # get query string from searchkit json
-    query = data["query"]["function_score"]["query"]["bool"]["must"][0]["multi_match"]["query"]
+    query = get_or_replace_bdrc_query(data)
+    if query is None:
+        return data
 
     # clean up query string
     query = query.strip()
@@ -250,8 +274,11 @@ def format_query(data):
     # normal search
     else:
         phrase_json = phrase_match_json(query)
-        #print('\n\ndata before\n\n', json.dumps(phrase_json, indent=4))
-        data = replace_bdrc_query(data, phrase_json)
+
+        #print('\n\ndata before\n\n', json.dumps(data, indent=4))
+
+        data = get_or_replace_bdrc_query(data, phrase_json)
+
         #print('\n\ndata after\n\n', json.dumps(data, indent=4))
 
     return data
@@ -260,7 +287,7 @@ def format_query(data):
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest():
     data = request.json
-    #print(data)
+    print(data)
     query = data['query'].strip()
     query, is_tibetan = tibetan(query)
     if not is_tibetan:
@@ -299,6 +326,20 @@ def normal_search():
     #print(json.dumps(os_json, indent=4))
 
     results = do_search(os_json, 'bdrc_prod')
+    print(json.dumps(results, indent=4))
+    
+    return results
+
+# normal search
+@app.route('/msearch', methods=['POST', 'GET'])
+def normal_msearch():
+    jsons = []
+    fp = io.BytesIO(request.data)
+    with jsonlines.Reader(fp) as reader:
+        for obj in reader:
+            jsons.append(format_query(obj))
+    fp.close()
+    results = do_msearch(jsons, 'bdrc_prod')
     #print(json.dumps(results, indent=4))
     
     return results

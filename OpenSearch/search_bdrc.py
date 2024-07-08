@@ -21,8 +21,8 @@ def get_fields(structure):
     elif structure == 'as_list':
         return fields.keys()
 
-def phrase_match_json(query):
-    query_words = re.split('[ /_]+', query)
+def phrase_match_json(query_str):
+    query_words = re.split('[ /_]+', query_str)
     weight_fields = get_fields('with_weights')
     phrase_query = {
         "dis_max": {
@@ -38,7 +38,7 @@ def phrase_match_json(query):
                 {
                     'multi_match': {
                         'type': 'phrase', 
-                        'query': query, 
+                        'query': query_str, 
                         'fields': weight_fields
                     }
                 }
@@ -71,7 +71,7 @@ def phrase_match_json(query):
     return(phrase_query)
 
 # remove stopwords from query
-def stopwords(query):
+def stopwords(query_str):
     prefixes = [
         "mkhan [pm]o ", "rgya gar kyi ", "mkhan chen ", "a lag ", "a khu ", "rgan ", "rgan lags ", 
         "zhabs drung ", "mkhas grub ", "mkhas dbang ", "mkhas pa ", "bla ma ", "sman pa ", "em chi ", 
@@ -93,15 +93,15 @@ def stopwords(query):
     prefix_match = '^(' + '|'.join(prefixes) + ')'
     suffix_match = '(' + '|'.join(suffixes) + ')$'
 
-    query = re.sub(prefix_match, '', query, flags=re.I)
-    query = re.sub(suffix_match, '', query, flags=re.I)
-    return query
+    query_str = re.sub(prefix_match, '', query_str, flags=re.I)
+    query_str = re.sub(suffix_match, '', query_str, flags=re.I)
+    return query_str
 
-def autosuggest_json(query, scope='all'):
+def autosuggest_json(query_str, scope='all'):
     os_json = {
         "suggest": {
             "autocomplete": {
-                "prefix": query,
+                "prefix": query_str,
                 "completion": {
                     "field": "suggest_me",
                     "size": 10,
@@ -142,14 +142,14 @@ def do_msearch(os_jsons, index):
     r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=5, verify=False)
     return r.content
 
-def tibetan(query):
-    if re.search(r'[\u0F00-\u0FFF]', query):
+def tibetan(query_str):
+    if re.search(r'[\u0F00-\u0FFF]', query_str):
         from pyewts import pyewts
         converter = pyewts()
-        query = converter.toWylie(query)
-        return query, True
+        query_str = converter.toWylie(query_str)
+        return query_str, True
     else:
-        return query, False
+        return query_str, False
 
 def suggestion_highlight(user_input, suggestion):
     # user input matches suggestion
@@ -162,24 +162,24 @@ def suggestion_highlight(user_input, suggestion):
     # could not highlight
     return suggestion
 
-def id_json_autosuggest(query):
+def id_json_autosuggest(query_str):
     os_json = {
         "query": {
             "bool": {
                 "should": [
                     {
                         "term": {
-                            "_id": query
+                            "_id": query_str
                         }
                     },
                     {
                         "term": {
-                            "other_id": query
+                            "other_id": query_str
                         }
                     },
                     {
                         "term": {
-                            "graphs": query
+                            "graphs": query_str
                         }
                     }
                 ],
@@ -189,15 +189,15 @@ def id_json_autosuggest(query):
     }
     return os_json
 
-def id_json_search(query):
+def id_json_search(query_str):
     match_phrases = []
-    if ' ' in query:
-        id_code, label = re.split(' ', query, maxsplit=1)
+    if ' ' in query_str:
+        id_code, label = re.split(' ', query_str, maxsplit=1)
         label = re.sub(';.*$', '', label)
         for field in [f for f in get_fields('as_list') if f.startswith('prefLabel_')]:
             match_phrases.append({'match_phrase': {field: label}})
     else:
-        id_code = query
+        id_code = query_str
 
     os_json = {
         "query": {
@@ -235,6 +235,7 @@ def id_json_search(query):
     #print(json.dumps(os_json, indent=4))
     return os_json
 
+# not in use
 def find_bdrc_query_rec(json_obj):
     if 'query' in json_obj and isinstance(json_obj['query'], str):
         return json_obj['query']
@@ -252,27 +253,27 @@ def replace_bdrc_query(json_obj, replacement):
 def format_query(data):
     #print(json.dumps(data, indent=4))
     # get query string from searchkit json
-    query = None
+    query_str = None
     try:
-        query = data["query"]["function_score"]["query"]["bool"]["must"][0]["multi_match"]["query"]
+        query_str = data["query"]["function_score"]["query"]["bool"]["must"][0]["multi_match"]["query"]
     except KeyError:
         return data
 
     # clean up query string
-    query = query.strip()
-    query, is_tibetan = tibetan(query)
+    query_str = query_str.strip()
+    query_str, is_tibetan = tibetan(query_str)
 
     if not is_tibetan:
-        query = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query)
-    query = re.sub('[/_]+$', '', query)
-    query = stopwords(query)
+        query_str = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str)
+    query_str = re.sub('[/_]+$', '', query_str)
+    query_str = stopwords(query_str)
 
     # id search
-    if re.search('(\S\d)', query):
-        data = id_json_search(query)
+    if re.search('(\S\d)', query_str):
+        data = id_json_search(query_str)
     # normal search
     else:
-        phrase_json = phrase_match_json(query)
+        phrase_json = phrase_match_json(query_str)
         #print('\n\ndata before\n\n', json.dumps(phrase_json, indent=4))
         data = replace_bdrc_query(data, phrase_json)
 
@@ -285,14 +286,14 @@ def format_query(data):
 def autosuggest():
     data = request.json
     #print(data)
-    query = data['query'].strip()
-    query, is_tibetan = tibetan(query)
+    query_str = data['query'].strip()
+    query_str, is_tibetan = tibetan(query_str)
     if not is_tibetan:
-        query = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query)
+        query_str = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str)
 
     # id in autosuggest
-    if re.search('(\S\d)', query):
-        os_json = id_json_autosuggest(query)
+    if re.search('(\S\d)', query_str):
+        os_json = id_json_autosuggest(query_str)
         r = do_search(os_json, 'bdrc_prod')
         result = []
         for hit in r['hits']['hits']:
@@ -300,17 +301,17 @@ def autosuggest():
             for field, value in hit['_source'].items():
                 if field.startswith('prefLabel'):
                     labels.append(value[0].strip())
-            result.append(query + ' ' + '; '.join(labels))
+            result.append(query_str + ' ' + '; '.join(labels))
         return result
 
-    os_json = autosuggest_json(query)
+    os_json = autosuggest_json(query_str)
     #print(json.dumps(os_json, indent=4))
     r = do_search(os_json, 'bdrc_autosuggest')
 
     results = []
     hits = r['suggest']['autocomplete'][0]['options']
     for hit in hits:
-        results.append({'lang': hit['_source'].get('lang'), 'res': suggestion_highlight(query, hit['text'])})
+        results.append({'lang': hit['_source'].get('lang'), 'res': suggestion_highlight(query_str, hit['text'])})
     #print(results)
     return results
 

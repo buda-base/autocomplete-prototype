@@ -235,28 +235,27 @@ def id_json_search(query):
     #print(json.dumps(os_json, indent=4))
     return os_json
 
-def get_or_replace_bdrc_query(json_obj, replacement=None):
-    if 'bdrc-query' in json_obj:
-        value = json_obj.pop('bdrc-query')
-        if replacement is not None:
-            json_obj['bdrc-query'] = replacement
-            return json_obj
-        return value
+def find_bdrc_query_rec(json_obj):
+    if 'query' in json_obj and isinstance(json_obj['query'], str):
+        return json_obj['query']
     for key, value in json_obj.items():
         if isinstance(value, dict):
-            result = get_or_replace_bdrc_query(value, replacement)
+            result = find_bdrc_query_rec(value)
             if result is not None:
-                if replacement is not None:
-                    return json_obj
                 return result
     return None
 
+def replace_bdrc_query(json_obj, replacement):
+    json_obj["query"]["function_score"]["query"]["bool"]["must"] = [replacement]
+    return json_obj
 
 def format_query(data):
     #print(json.dumps(data, indent=4))
     # get query string from searchkit json
-    query = get_or_replace_bdrc_query(data)
-    if query is None:
+    query = None
+    try:
+        query = data["query"]["function_score"]["query"]["bool"]["must"][0]["multi_match"]["query"]
+    except KeyError:
         return data
 
     # clean up query string
@@ -274,10 +273,8 @@ def format_query(data):
     # normal search
     else:
         phrase_json = phrase_match_json(query)
-
-        #print('\n\ndata before\n\n', json.dumps(data, indent=4))
-
-        data = get_or_replace_bdrc_query(data, phrase_json)
+        #print('\n\ndata before\n\n', json.dumps(phrase_json, indent=4))
+        data = replace_bdrc_query(data, phrase_json)
 
         #print('\n\ndata after\n\n', json.dumps(data, indent=4))
 
@@ -287,7 +284,7 @@ def format_query(data):
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest():
     data = request.json
-    print(data)
+    #print(data)
     query = data['query'].strip()
     query, is_tibetan = tibetan(query)
     if not is_tibetan:
@@ -326,7 +323,7 @@ def normal_search():
     #print(json.dumps(os_json, indent=4))
 
     results = do_search(os_json, 'bdrc_prod')
-    print(json.dumps(results, indent=4))
+    #print(json.dumps(results, indent=4))
     
     return results
 

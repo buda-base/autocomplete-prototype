@@ -107,6 +107,8 @@ def phrase_match_json(query_str):
         for cut in range(1, number_of_tokens):
             phrase1 = ' '.join(query_words[0:cut])
             phrase2 = ' '.join(query_words[cut:])
+            if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
+                continue
             # add a phrase pair in "must" which will go inside "should"
             must = []
             for phrase in [phrase1, phrase2]:

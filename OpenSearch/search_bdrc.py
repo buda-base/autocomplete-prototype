@@ -5,21 +5,71 @@ from flask_cors import CORS
 import os
 import jsonlines
 import io
+# suppress redundant messages in local
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all domains on all routes
 
-def get_fields(structure):
-    #fields = {"altLabel_bo_alalc97":0.6, "altLabel_bo_latn_pinyin":0.6, "altLabel_bo_latn_wadegile":0.6, "altLabel_bo_x_ewts":0.6, "altLabel_cmg_mong":0.6, "altLabel_cmg_x_poppe":0.6, "altLabel_de":0.6, "altLabel_en":0.6, "altLabel_ja_alalc97":0.6, "altLabel_ja_x_ndia":0.6, "altLabel_km":0.6, "altLabel_km_x_twktt":0.6, "altLabel_km_x_unspec":0.6, "altLabel_mn":0.6, "altLabel_mn_alalc97":0.6, "altLabel_pi_khmr":0.6, "altLabel_pi_x_iast":0.6, "altLabel_pi_x_twktt":0.6, "altLabel_sa_alalc97":0.6, "altLabel_sa_deva":0.6, "altLabel_sa_x_iast":0.6, "altLabel_sa_x_ndia":0.6, "altLabel_sa_x_rma":0.6, "altLabel_sa_x_trans":0.6, "altLabel_zh_alalc97":0.6, "altLabel_zh_hani":0.6, "altLabel_zh_latn_pinyin":0.6, "altLabel_zh_latn_pinyin_x_ndia":0.6, "altLabel_zh_latn_wadegile":0.6, "associatedTradition":0.05, "author":0.1, "authorshipStatement_bo_x_ewts":0.005, "authorshipStatement_en":0.005, "authorshipStatement_sa_deva":0.005, "authorshipStatement_zh":0.005, "authorshipStatement_zh_alalc97":0.005, "authorshipStatement_zh_hani":0.005, "authorshipStatement_zh_latn_pinyin_x_ndia":0.005, "comment":0.0001, "comment_bo_x_ewts":0.0001, "comment_en":0.0001, "comment_sa_deva":0.0001, "comment_sa_x_iast":0.0001, "comment_zh_hani":0.0001, "comment_zh_latn_pinyin":0.0001, "prefLabel_bo_alalc97":1, "prefLabel_bo_latn_wadegile":1, "prefLabel_bo_x_ewts":1, "prefLabel_de":1, "prefLabel_en":1, "prefLabel_fr":1, "prefLabel_fr_alalc97":1, "prefLabel_fr_x_iast":1, "prefLabel_ja":1, "prefLabel_ja_alalc97":1, "prefLabel_ja_x_ndia":1, "prefLabel_km":1, "prefLabel_km_x_twktt":1, "prefLabel_km_x_unspec":1, "prefLabel_mn":1, "prefLabel_mn_alalc97":1, "prefLabel_pi_khmr":1, "prefLabel_pi_x_iast":1, "prefLabel_pi_x_twktt":1, "prefLabel_ru":1, "prefLabel_ru_alalc97":1, "prefLabel_sa_alalc97":1, "prefLabel_sa_deva":1, "prefLabel_sa_x_iast":1, "prefLabel_sa_x_ndia":1, "prefLabel_sa_x_phon_en_m_tbrc":1, "prefLabel_sa_x_trans":1, "prefLabel_zh_alalc97":1, "prefLabel_zh_hani":1, "prefLabel_zh_latn_pinyin":1, "prefLabel_zh_latn_pinyin_x_ndia":1, "prefLabel_zh_latn_wadegile":1, "publisherLocation_bo_latn_wadegile":0.01, "publisherLocation_bo_x_ewts":0.01, "publisherLocation_en":0.01, "publisherLocation_fr":0.01, "publisherLocation_mn_alalc97":0.01, "publisherLocation_sa_deva":0.01, "publisherLocation_zh_hani":0.01, "publisherLocation_zh_latn_pinyin_x_ndia":0.01, "publisherName_bo_latn_wadegile":0.01, "publisherName_bo_x_ewts":0.01, "publisherName_en":0.01, "publisherName_fr":0.01, "publisherName_sa_deva":0.01, "publisherName_sa_x_iast":0.01, "publisherName_zh_hani":0.01, "publisherName_zh_latn_pinyin_x_ndia":0.01, "seriesName_bo_x_ewts":0.1, "seriesName_en":0.1, "seriesName_res":0.1, "seriesName_zh_hani":0.1, "seriesName_zh_latn_pinyin_x_ndia":0.1, "translator":0.05, "type":0.5, "workGenre":0.02, "workIsAbout":0.01}
-    fields = {"altLabel_bo_x_ewts":0.6, "altLabel_en":0.6, "authorshipStatement_bo_x_ewts":0.005, "authorshipStatement_en":0.005, "comment":0.0001, "comment_bo_x_ewts":0.0001, "comment_en":0.0001, "prefLabel_bo_x_ewts":1, "prefLabel_en":1, "publisherLocation_bo_x_ewts":0.01, "publisherLocation_en":0.01, "publisherName_bo_x_ewts":0.01, "publisherName_en":0.01, "seriesName_bo_x_ewts":0.1, "seriesName_en":0.1}
+def get_fields(structure, langs=['bo_x_ewts', 'en']):
+    # fields in the descending order of occurrences in the index
+    # use the order to limit the number of fields when the full list would be too long (requires python 3.7)
+    all_fields = {"prefLabel_bo_x_ewts": 1, "altLabel_bo_x_ewts": 0.6, "comment_bo_x_ewts": 0.0001, "author": 0.1, "comment_en": 0.0001, "authorshipStatement_bo_x_ewts": 0.005, "summary_en": 0.2, "altLabel_cmg_x_poppe": 0.6, "prefLabel_en": 1, "altLabel_cmg_mong": 0.6, "prefLabel_km": 1, "publisherName_bo_x_ewts": 0.01, "comment": 0.0001, "publisherLocation_bo_x_ewts": 0.01, "prefLabel_zh_hani": 1, "authorshipStatement_en": 0.005, "prefLabel_km_x_twktt": 1, "publisherLocation_en": 0.01, "altLabel_zh_latn_pinyin_x_ndia": 0.6, "publisherName_en": 0.01, "seriesName_res": 0.1, "altLabel_en": 0.6, "summary_bo_x_ewts": 0.2, "altLabel_km": 0.6, "seriesName_bo_x_ewts": 0.1, "issueName": 0.1, "altLabel_km_x_twktt": 0.6, "prefLabel_pi_khmr": 1, "altLabel_zh_hani": 0.6, "prefLabel_zh_latn_pinyin_x_ndia": 1, "translator": 0.1, "altLabel_sa_x_iast": 0.6, "prefLabel_sa_x_ndia": 1, "prefLabel_sa_alalc97": 1, "prefLabel_sa_x_iast": 1, "prefLabel_pi_x_twktt": 1, "seriesName_en": 0.1, "altLabel_pi_khmr": 0.6, "altLabel_pi_x_twktt": 0.6, "publisherName_zh_hani": 0.01, "altLabel_sa_x_ndia": 0.6, "prefLabel_zh_latn_wadegile": 1, "publisherLocation_zh_hani": 0.01, "altLabel_bo_alalc97": 0.6, "seriesName_zh_hani": 0.1, "prefLabel_mn_x_trans": 1, "altLabel_mn_x_trans": 0.6, "authorshipStatement_zh_hani": 0.005, "prefLabel": 1, "altLabel_zh_latn_pinyin": 0.6, "comment_zh_hani": 0.0001, "altLabel_sa_alalc97": 0.6, "prefLabel_mn_alalc97": 1, "prefLabel_sa_deva": 1, "altLabel_zh_latn_wadegile": 0.6, "publisherLocation_zh_latn_pinyin_x_ndia": 0.01, "authorshipStatement_zh_latn_pinyin_x_ndia": 0.005, "publisherName_zh_latn_pinyin_x_ndia": 0.01, "prefLabel_zh_latn_pinyin": 1, "comment_sa_x_iast": 0.0001, "altLabel_mn_alalc97": 0.6, "seriesName_zh_latn_pinyin_x_ndia": 0.1, "prefLabel_bo_alalc97": 1, "prefLabel_mn": 1, "prefLabel_pi_x_iast": 1, "prefLabel_sa_x_trans": 1, "prefLabel_fr": 1, "summary_zh_hani": 0.2, "altLabel_mn": 0.6, "altLabel_sa_deva": 0.6, "prefLabel_bo_latn_wadegile": 1, "publisherName_bo_latn_wadegile": 0.01, "altLabel_bo_latn_wadegile": 0.6, "comment_bo_latn_wadegile": 0.0001, "prefLabel_ja": 1, "altLabel_bo_latn_pinyin": 0.6, "publisherName_fr": 0.01, "authorshipStatement_zh": 0.005, "prefLabel_fr_alalc97": 1, "prefLabel_km_x_unspec": 1, "prefLabel_ru": 1, "prefLabel_sa_x_phon_en_m_tbrc": 1, "prefLabel_sa_x_rma": 1, "prefLabel_zh_alalc97": 1, "summary_sa_x_ndia": 0.2, "altLabel_bo_x_ndia": 0.6, "altLabel_de": 0.6, "altLabel_ja_alalc97": 0.6, "altLabel_ja_x_ndia": 0.6, "altLabel_km_x_unspec": 0.6, "altLabel_pi_x_iast": 0.6, "altLabel_sa_x_rma": 0.6, "altLabel_sa_x_trans": 0.6, "altLabel_zh_alalc97": 0.6, "altLabel_zh_x_ndia": 0.6, "authorshipStatement_sa_deva": 0.005, "authorshipStatement_zh_alalc97": 0.005, "comment_bo_alalc97": 0.0001, "comment_bo_x_ndia": 0.0001, "comment_sa_deva": 0.0001, "comment_sa_x_ndia": 0.0001, "comment_zh_latn_pinyin": 0.0001, "prefLabel_bo_x_acip": 1, "prefLabel_de": 1, "prefLabel_fr_x_iast": 1, "prefLabel_ja_alalc97": 1, "prefLabel_ja_x_ndia": 1, "prefLabel_ru_alalc97": 1, "publisherLocation_bo_latn_wadegile": 0.01, "publisherLocation_fr": 0.01, "publisherLocation_mn_alalc97": 0.01, "publisherLocation_sa_deva": 0.01, "publisherName_sa_deva": 0.01, "publisherName_sa_x_iast": 0.01}
 
-    #fields = {"prefLabel_bo_x_ewts": 1}
+    fields = {k: v for k, v in all_fields.items() if any(k.endswith(lang) for lang in langs)}
+
     if structure == 'with_weights':
-        return [f'{name}^{weight}' for name, weight in fields.items()]
+        return [f'{name}^{weight}' for name, weight in list(fields.items())]
     elif structure == 'for_autosuggest_highlight':
-        return {key: {} for key in fields}
+        return {key: {} for key in list(fields.keys())}
     elif structure == 'as_list':
         return fields.keys()
+    elif structure == 'as_dict':
+        return dict(list(fields.items()))
+
+def fuzzy_phrase_json(query_str):
+
+    # We are here because the query did not match anything.
+    # First, get similar phrases from bdrc_autosuggest with fuzzy match
+    os_json = autosuggest_json(query_str)
+    r = do_search(os_json, 'bdrc_autosuggest')
+    try: hits = r['suggest']['autocomplete'][0]['options']
+    except KeyError:
+        return None
+    matches = set()
+    length = len(re.split("[^a-zA-Z0-9+']", query_str))
+    for hit in hits:
+        matches.add(' '.join(re.split("[^a-zA-Z0-9+']", hit['text'])[:length]))
+    if not matches:
+        return None
+
+    # Now we have phrases that do exist in bdrc_prod
+    # Query bdrc_prod to find them
+    weight_fields = get_fields('with_weights')
+    fuzzy_phrase_query = {
+        "dis_max": {
+            "queries": []
+        }
+    }
+
+    for match in matches:
+        should = {
+            'bool': {
+                'must': [
+                    {
+                        'multi_match': {
+                            'type': 'phrase', 
+                            'query': match, 
+                            'fields': weight_fields
+                        }
+                    }
+                ],
+                'boost': 1
+            }
+        }
+        fuzzy_phrase_query['dis_max']['queries'].append(should)
+    return fuzzy_phrase_query
 
 def phrase_match_json(query_str):
     query_words = re.split('[ /_]+', query_str)
@@ -232,7 +282,6 @@ def id_json_search(query_str):
     if match_phrases:
         os_json['query']['bool']['must'].append({'bool': {'should': match_phrases, 'minimum_should_match': 1}})
 
-    #print(json.dumps(os_json, indent=4))
     return os_json
 
 # not in use
@@ -247,17 +296,19 @@ def find_bdrc_query_rec(json_obj):
     return None
 
 def replace_bdrc_query(json_obj, replacement):
-    json_obj["query"]["function_score"]["query"]["bool"]["must"] = [replacement]
+    try: json_obj["query"]["function_score"]["query"]["bool"]["must"] = [replacement]
+    except KeyError:
+        print('json_ob', json_obj)
+        print('replacement', replacement)
     return json_obj
 
-def format_query(data):
-    #print(json.dumps(data, indent=4))
+def get_query_str(data):
     # get query string from searchkit json
     query_str = None
     try:
         query_str = data["query"]["function_score"]["query"]["bool"]["must"][0]["multi_match"]["query"]
     except KeyError:
-        return data
+        return data, query_str
 
     # clean up query string
     query_str = query_str.strip()
@@ -268,41 +319,29 @@ def format_query(data):
     query_str = re.sub('[/_]+$', '', query_str)
     query_str = stopwords(query_str)
 
-    # id search
-    if re.search('(\S\d)', query_str):
-        data = id_json_search(query_str)
-    # normal search
-    else:
-        phrase_json = phrase_match_json(query_str)
-        #print('\n\ndata before\n\n', json.dumps(phrase_json, indent=4))
-        data = replace_bdrc_query(data, phrase_json)
-
-        #print('\n\ndata after\n\n', json.dumps(data, indent=4))
-
-    return data
-
+    return query_str
 
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest():
     data = request.json
-    #print(data)
     query_str = data['query'].strip()
     query_str, is_tibetan = tibetan(query_str)
     if not is_tibetan:
         query_str = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str)
 
     # id in autosuggest
-    if re.search('(\S\d)', query_str):
+    if re.search('([^\s0-9]\d)', query_str):
         os_json = id_json_autosuggest(query_str)
         r = do_search(os_json, 'bdrc_prod')
-        result = []
+        results = []
         for hit in r['hits']['hits']:
             labels = []
             for field, value in hit['_source'].items():
                 if field.startswith('prefLabel'):
                     labels.append(value[0].strip())
-            result.append(query_str + ' ' + '; '.join(labels))
-        return result
+            results.append({'lang': hit['_source'].get('lang'), 'res': query_str + ' ' + '; '.join(labels)})
+            #result.append(query_str + ' ' + '; '.join(labels))
+        return results
 
     os_json = autosuggest_json(query_str)
     #print(json.dumps(os_json, indent=4))
@@ -319,13 +358,28 @@ def autosuggest():
 @app.route('/search', methods=['POST', 'GET'])
 def normal_search():
     data = request.json
+    query_str = get_query_str(data)
 
-    os_json = format_query(data)
-    #print(json.dumps(os_json, indent=4))
+    # id search
+    if re.search('([^\s0-9]\d)', query_str):
+        data = id_json_search(query_str)
+        results = do_search(data, 'bdrc_prod')
+        return results
 
-    results = do_search(os_json, 'bdrc_prod')
-    #print(json.dumps(results, indent=4))
-    
+    # normal search
+    else:
+        phrase_json = phrase_match_json(query_str)
+        data = replace_bdrc_query(data, phrase_json)
+
+    results = do_search(data, 'bdrc_prod')
+
+    # zero hits, try fuzzy phrase
+    if results['hits']['total']['value'] == 0:
+        fuzzy_json = fuzzy_phrase_json(query_str)
+        if fuzzy_json:
+            data = replace_bdrc_query(request.json, fuzzy_json)
+            results = do_search(data, 'bdrc_prod')
+
     return results
 
 # normal search
@@ -335,7 +389,7 @@ def normal_msearch():
     fp = io.BytesIO(request.data)
     with jsonlines.Reader(fp) as reader:
         for obj in reader:
-            jsons.append(format_query(obj))
+            jsons.append(get_query_str(obj))
     fp.close()
     results = do_msearch(jsons, 'bdrc_prod')
     #print(json.dumps(results, indent=4))

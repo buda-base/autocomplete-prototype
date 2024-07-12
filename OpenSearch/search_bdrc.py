@@ -398,7 +398,7 @@ def tweak_query(data, fuzzy=False):
 
 def tweak_mquery(jsons, fuzzy=False):
     res = []
-    for i, j in jsons:
+    for i, j in enumerate(jsons):
         if i % 2 == 0:
             res.append(j)
         else:

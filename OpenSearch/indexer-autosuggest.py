@@ -31,6 +31,9 @@ def create_mappings():
                 },
                 "lang": {
                     "type": "keyword"
+                },         
+                "id": {
+                    "type": "keyword"
                 }         
             }
         }
@@ -157,24 +160,14 @@ def one_doc(data, doc_id):
         doc_id += 1
         puts += ([
             { "index" : { "_index" : "bdrc_autosuggest", "_id" : doc_id } },
-            {'suggest_me': prefLabels[lang], 'scope': scope, 'lang': lang}
+            {'suggest_me': prefLabels[lang], 'scope': scope, 'lang': lang, 'id': data['_id']}
         ])
     for lang in altLabels:
         doc_id += 1
         puts += ([
             { "index" : { "_index" : "bdrc_autosuggest", "_id" : doc_id } },
-            {'suggest_me': altLabels[lang], 'scope': scope, 'lang': lang}
+            {'suggest_me': altLabels[lang], 'scope': scope, 'lang': lang, 'id': data['_id']}
         ])
-
-
-    '''
-    if prefLabels:
-        doc_id += 1
-        puts += ([
-            { "index" : { "_index" : "bdrc_autosuggest", "_id" : doc_id } },
-            {'suggest_me': prefLabels, 'scope': scope}
-        ])
-    '''
     
     # combine the json objects in ES format
     puts = '\n'.join(json.dumps(p) for p in puts)  + '\n'

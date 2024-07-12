@@ -9,6 +9,9 @@ import io
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+from pyewts import pyewts
+CONVERTER = pyewts()
+
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all domains on all routes
 
@@ -194,9 +197,7 @@ def do_msearch(os_jsons, index):
 
 def tibetan(query_str):
     if re.search(r'[\u0F00-\u0FFF]', query_str):
-        from pyewts import pyewts
-        converter = pyewts()
-        query_str = converter.toWylie(query_str)
+        query_str = CONVERTER.toWylie(query_str)
         return query_str, True
     else:
         return query_str, False
@@ -308,7 +309,7 @@ def get_query_str(data):
     try:
         query_str = data["query"]["function_score"]["query"]["bool"]["must"][0]["multi_match"]["query"]
     except KeyError:
-        return data, query_str
+        return None
 
     # clean up query string
     query_str = query_str.strip()
@@ -330,7 +331,7 @@ def autosuggest():
         query_str = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str)
 
     # id in autosuggest
-    if re.search('([^\s0-9]\d)', query_str):
+    if re.search(r'([^\s0-9]\d)', query_str):
         os_json = id_json_autosuggest(query_str)
         r = do_search(os_json, 'bdrc_prod')
         results = []
@@ -361,7 +362,7 @@ def normal_search():
     query_str = get_query_str(data)
 
     # id search
-    if re.search('([^\s0-9]\d)', query_str):
+    if re.search(r'([^\s0-9]\d)', query_str):
         data = id_json_search(query_str)
         results = do_search(data, 'bdrc_prod')
         return results
@@ -382,17 +383,48 @@ def normal_search():
 
     return results
 
+def tweak_query(data, fuzzy=False):
+    query_str = get_query_str(data)
+    # id search
+    if not fuzzy and re.search(r'([^\s0-9]\d)', query_str):
+        return id_json_search(query_str)
+    if not fuzzy:
+        phrase_json = phrase_match_json(query_str)
+        return replace_bdrc_query(data, phrase_json)
+    fuzzy_json = fuzzy_phrase_json(query_str)
+    if fuzzy_json:
+        return replace_bdrc_query(request.json, fuzzy_json)
+    return None
+
+def tweak_mquery(jsons, fuzzy=False):
+    res = []
+    for i, j in jsons:
+        if i % 2 == 0:
+            res.append(j)
+        else:
+            tweaked = tweak_query(j)
+            if tweaked is None:
+                return None
+            res.append(tweaked)
+    return res
+
 # normal search
 @app.route('/msearch', methods=['POST', 'GET'])
 def normal_msearch():
-    jsons = []
+    original_jsons = []
     fp = io.BytesIO(request.data)
     with jsonlines.Reader(fp) as reader:
         for obj in reader:
-            jsons.append(get_query_str(obj))
+            original_jsons.append(obj)
     fp.close()
-    results = do_msearch(jsons, 'bdrc_prod')
-    #print(json.dumps(results, indent=4))
+
+    normal_tweaks = tweak_mquery(original_jsons)
+    results = do_msearch(normal_tweaks, 'bdrc_prod')
+
+    if results[0]['hits']['total']['value'] == 0:
+        fuzzy_tweaks = tweak_mquery(original_jsons, fuzzy=True)
+        if fuzzy_tweaks is not None:
+            results = do_msearch(fuzzy_tweaks, 'bdrc_prod')
     
     return results
 

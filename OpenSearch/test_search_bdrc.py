@@ -1,8 +1,8 @@
-from search_bdrc import format_query
+from search_bdrc import normal_search
 import json
 import jsondiff
 
-tests_base_paths = ["req1"]
+tests_base_paths = ["basic-two-tokens"]
 
 def test_one(test_base_path):
 	base = None
@@ -11,8 +11,8 @@ def test_one(test_base_path):
 	    base = json.load(f)
 	with open('tests/'+test_base_path+'-expected.json') as f:
 	    expected = json.load(f)
-	res = format_query(base)
-	diff = jsondiff.diff(res, expected, dump=True)
+	res = normal_search(base)
+	diff = jsondiff.diff(res, expected, dump=False)
 	if diff:
 		print("ERROR: difference found in "+test_base_path+":")
 		print(diff)

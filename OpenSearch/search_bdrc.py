@@ -174,6 +174,8 @@ def autosuggest_json(query_str, scope='all'):
     return(os_json)
 
 def do_search(os_json, index):
+    if __name__ != '__main__':
+        return os_json
     headers = {'Content-Type': 'application/json'}
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_search'
@@ -359,8 +361,13 @@ def autosuggest():
 
 # normal search
 @app.route('/search', methods=['POST', 'GET'])
-def normal_search():
-    data = request.json
+def normal_search(test_json=None):
+    # unit test
+    if test_json:
+        data = test_json
+    # production
+    else:
+        data = request.json
     query_str = get_query_str(data)
 
     # id search
@@ -377,7 +384,7 @@ def normal_search():
     results = do_search(data, 'bdrc_prod')
 
     # zero hits, try fuzzy phrase
-    if results['hits']['total']['value'] == 0:
+    if __name__ == '__main__' and results['hits']['total']['value'] == 0:
         fuzzy_json = fuzzy_phrase_json(query_str)
         if fuzzy_json:
             data = replace_bdrc_query(request.json, fuzzy_json)

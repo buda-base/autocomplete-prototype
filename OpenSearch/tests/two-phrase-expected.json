@@ -1,0 +1,283 @@
+{
+    "from": 0,
+    "size": 0,
+    "aggs": {
+        "type": {
+            "terms": {
+                "field": "type"
+            }
+        },
+        "inCollection": {
+            "terms": {
+                "field": "inCollection"
+            }
+        },
+        "associatedTradition": {
+            "terms": {
+                "field": "associatedTradition"
+            }
+        },
+        "personGender": {
+            "terms": {
+                "field": "personGender"
+            }
+        },
+        "associatedCentury": {
+            "terms": {
+                "field": "associatedCentury"
+            }
+        },
+        "printMethod": {
+            "terms": {
+                "field": "printMethod"
+            }
+        },
+        "script": {
+            "terms": {
+                "field": "script"
+            }
+        },
+        "workIsAbout": {
+            "terms": {
+                "field": "workIsAbout"
+            }
+        },
+        "workGenre": {
+            "terms": {
+                "field": "workGenre"
+            }
+        },
+        "author": {
+            "terms": {
+                "field": "author"
+            }
+        },
+        "translator": {
+            "terms": {
+                "field": "translator"
+            }
+        }
+    },
+    "highlight": {
+        "fields": {
+            "prefLabel_bo_x_ewts": {},
+            "altLabel_bo_x_ewts": {},
+            "seriesName_bo_x_ewts": {},
+            "seriesName_en": {}
+        }
+    },
+    "query": {
+        "function_score": {
+            "script_score": {
+                "script": {
+                    "id": "bdrc-score"
+                }
+            },
+            "query": {
+                "bool": {
+                    "must": [
+                        {
+                            "dis_max": {
+                                "queries": [
+                                    {
+                                        "bool": {
+                                            "must": [
+                                                {
+                                                    "multi_match": {
+                                                        "type": "phrase",
+                                                        "query": "dri med 'od zer",
+                                                        "fields": [
+                                                            "prefLabel_bo_x_ewts^1",
+                                                            "altLabel_bo_x_ewts^0.6",
+                                                            "comment_bo_x_ewts^0.0001",
+                                                            "comment_en^0.0001",
+                                                            "authorshipStatement_bo_x_ewts^0.005",
+                                                            "summary_en^0.2",
+                                                            "prefLabel_en^1",
+                                                            "publisherName_bo_x_ewts^0.01",
+                                                            "publisherLocation_bo_x_ewts^0.01",
+                                                            "authorshipStatement_en^0.005",
+                                                            "publisherLocation_en^0.01",
+                                                            "publisherName_en^0.01",
+                                                            "altLabel_en^0.6",
+                                                            "summary_bo_x_ewts^0.2",
+                                                            "seriesName_bo_x_ewts^0.1",
+                                                            "seriesName_en^0.1"
+                                                        ]
+                                                    }
+                                                }
+                                            ],
+                                            "boost": 1.1
+                                        }
+                                    },
+                                    {
+                                        "bool": {
+                                            "must": [
+                                                {
+                                                    "multi_match": {
+                                                        "type": "phrase",
+                                                        "query": "dri",
+                                                        "fields": [
+                                                            "prefLabel_bo_x_ewts^1",
+                                                            "altLabel_bo_x_ewts^0.6",
+                                                            "comment_bo_x_ewts^0.0001",
+                                                            "comment_en^0.0001",
+                                                            "authorshipStatement_bo_x_ewts^0.005",
+                                                            "summary_en^0.2",
+                                                            "prefLabel_en^1",
+                                                            "publisherName_bo_x_ewts^0.01",
+                                                            "publisherLocation_bo_x_ewts^0.01",
+                                                            "authorshipStatement_en^0.005",
+                                                            "publisherLocation_en^0.01",
+                                                            "publisherName_en^0.01",
+                                                            "altLabel_en^0.6",
+                                                            "summary_bo_x_ewts^0.2",
+                                                            "seriesName_bo_x_ewts^0.1",
+                                                            "seriesName_en^0.1"
+                                                        ]
+                                                    }
+                                                },
+                                                {
+                                                    "multi_match": {
+                                                        "type": "phrase",
+                                                        "query": "med 'od zer",
+                                                        "fields": [
+                                                            "prefLabel_bo_x_ewts^1",
+                                                            "altLabel_bo_x_ewts^0.6",
+                                                            "comment_bo_x_ewts^0.0001",
+                                                            "comment_en^0.0001",
+                                                            "authorshipStatement_bo_x_ewts^0.005",
+                                                            "summary_en^0.2",
+                                                            "prefLabel_en^1",
+                                                            "publisherName_bo_x_ewts^0.01",
+                                                            "publisherLocation_bo_x_ewts^0.01",
+                                                            "authorshipStatement_en^0.005",
+                                                            "publisherLocation_en^0.01",
+                                                            "publisherName_en^0.01",
+                                                            "altLabel_en^0.6",
+                                                            "summary_bo_x_ewts^0.2",
+                                                            "seriesName_bo_x_ewts^0.1",
+                                                            "seriesName_en^0.1"
+                                                        ]
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "bool": {
+                                            "must": [
+                                                {
+                                                    "multi_match": {
+                                                        "type": "phrase",
+                                                        "query": "dri med",
+                                                        "fields": [
+                                                            "prefLabel_bo_x_ewts^1",
+                                                            "altLabel_bo_x_ewts^0.6",
+                                                            "comment_bo_x_ewts^0.0001",
+                                                            "comment_en^0.0001",
+                                                            "authorshipStatement_bo_x_ewts^0.005",
+                                                            "summary_en^0.2",
+                                                            "prefLabel_en^1",
+                                                            "publisherName_bo_x_ewts^0.01",
+                                                            "publisherLocation_bo_x_ewts^0.01",
+                                                            "authorshipStatement_en^0.005",
+                                                            "publisherLocation_en^0.01",
+                                                            "publisherName_en^0.01",
+                                                            "altLabel_en^0.6",
+                                                            "summary_bo_x_ewts^0.2",
+                                                            "seriesName_bo_x_ewts^0.1",
+                                                            "seriesName_en^0.1"
+                                                        ]
+                                                    }
+                                                },
+                                                {
+                                                    "multi_match": {
+                                                        "type": "phrase",
+                                                        "query": "'od zer",
+                                                        "fields": [
+                                                            "prefLabel_bo_x_ewts^1",
+                                                            "altLabel_bo_x_ewts^0.6",
+                                                            "comment_bo_x_ewts^0.0001",
+                                                            "comment_en^0.0001",
+                                                            "authorshipStatement_bo_x_ewts^0.005",
+                                                            "summary_en^0.2",
+                                                            "prefLabel_en^1",
+                                                            "publisherName_bo_x_ewts^0.01",
+                                                            "publisherLocation_bo_x_ewts^0.01",
+                                                            "authorshipStatement_en^0.005",
+                                                            "publisherLocation_en^0.01",
+                                                            "publisherName_en^0.01",
+                                                            "altLabel_en^0.6",
+                                                            "summary_bo_x_ewts^0.2",
+                                                            "seriesName_bo_x_ewts^0.1",
+                                                            "seriesName_en^0.1"
+                                                        ]
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "bool": {
+                                            "must": [
+                                                {
+                                                    "multi_match": {
+                                                        "type": "phrase",
+                                                        "query": "dri med 'od",
+                                                        "fields": [
+                                                            "prefLabel_bo_x_ewts^1",
+                                                            "altLabel_bo_x_ewts^0.6",
+                                                            "comment_bo_x_ewts^0.0001",
+                                                            "comment_en^0.0001",
+                                                            "authorshipStatement_bo_x_ewts^0.005",
+                                                            "summary_en^0.2",
+                                                            "prefLabel_en^1",
+                                                            "publisherName_bo_x_ewts^0.01",
+                                                            "publisherLocation_bo_x_ewts^0.01",
+                                                            "authorshipStatement_en^0.005",
+                                                            "publisherLocation_en^0.01",
+                                                            "publisherName_en^0.01",
+                                                            "altLabel_en^0.6",
+                                                            "summary_bo_x_ewts^0.2",
+                                                            "seriesName_bo_x_ewts^0.1",
+                                                            "seriesName_en^0.1"
+                                                        ]
+                                                    }
+                                                },
+                                                {
+                                                    "multi_match": {
+                                                        "type": "phrase",
+                                                        "query": "zer",
+                                                        "fields": [
+                                                            "prefLabel_bo_x_ewts^1",
+                                                            "altLabel_bo_x_ewts^0.6",
+                                                            "comment_bo_x_ewts^0.0001",
+                                                            "comment_en^0.0001",
+                                                            "authorshipStatement_bo_x_ewts^0.005",
+                                                            "summary_en^0.2",
+                                                            "prefLabel_en^1",
+                                                            "publisherName_bo_x_ewts^0.01",
+                                                            "publisherLocation_bo_x_ewts^0.01",
+                                                            "authorshipStatement_en^0.005",
+                                                            "publisherLocation_en^0.01",
+                                                            "publisherName_en^0.01",
+                                                            "altLabel_en^0.6",
+                                                            "summary_bo_x_ewts^0.2",
+                                                            "seriesName_bo_x_ewts^0.1",
+                                                            "seriesName_en^0.1"
+                                                        ]
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

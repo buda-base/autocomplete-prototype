@@ -1,12 +1,69 @@
 {
     "from": 0,
-    "size": 5,
+    "size": 0,
+    "aggs": {
+        "type": {
+            "terms": {
+                "field": "type"
+            }
+        },
+        "inCollection": {
+            "terms": {
+                "field": "inCollection"
+            }
+        },
+        "associatedTradition": {
+            "terms": {
+                "field": "associatedTradition"
+            }
+        },
+        "personGender": {
+            "terms": {
+                "field": "personGender"
+            }
+        },
+        "associatedCentury": {
+            "terms": {
+                "field": "associatedCentury"
+            }
+        },
+        "printMethod": {
+            "terms": {
+                "field": "printMethod"
+            }
+        },
+        "script": {
+            "terms": {
+                "field": "script"
+            }
+        },
+        "workIsAbout": {
+            "terms": {
+                "field": "workIsAbout"
+            }
+        },
+        "workGenre": {
+            "terms": {
+                "field": "workGenre"
+            }
+        },
+        "author": {
+            "terms": {
+                "field": "author"
+            }
+        },
+        "translator": {
+            "terms": {
+                "field": "translator"
+            }
+        }
+    },
     "highlight": {
         "fields": {
             "prefLabel_bo_x_ewts": {},
             "altLabel_bo_x_ewts": {},
-            "prefLabel_en": {},
-            "altLabel_en": {}
+            "seriesName_bo_x_ewts": {},
+            "seriesName_en": {}
         }
     },
     "query": {

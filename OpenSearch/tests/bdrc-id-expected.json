@@ -1,0 +1,30 @@
+{
+    "query": {
+        "bool": {
+            "must": [
+                {
+                    "bool": {
+                        "should": [
+                            {
+                                "term": {
+                                    "_id": "MW1PD96682"
+                                }
+                            },
+                            {
+                                "term": {
+                                    "other_id": "MW1PD96682"
+                                }
+                            },
+                            {
+                                "term": {
+                                    "graphs": "MW1PD96682"
+                                }
+                            }
+                        ],
+                        "minimum_should_match": 1
+                    }
+                }
+            ]
+        }
+    }
+}

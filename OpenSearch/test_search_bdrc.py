@@ -1,8 +1,6 @@
 from search_bdrc import normal_search
 import json
-import jsondiff
-
-tests_base_paths = ["basic-two-tokens"]
+import jsondiff, os, re
 
 def test_one(test_base_path):
 	base = None
@@ -17,14 +15,15 @@ def test_one(test_base_path):
 		print("ERROR: difference found in "+test_base_path+":")
 		print(diff)
 		print("\ngot\n")
-		print(json.dumps(res))
+		print(json.dumps(res, indent=4))
 		print("\nbut expected\n")
-		print(json.dumps(expected))
+		print(json.dumps(expected, indent=4))
 	else:
 		print("PASS: "+test_base_path)
 
 def main():
-	for test_base_path in tests_base_paths:
-		test_one(test_base_path)
-
+	for filename in os.listdir('tests'):
+		if filename.endswith('-expected.json'):
+			continue
+		test_one(re.sub('\.json$', '', filename))
 main()

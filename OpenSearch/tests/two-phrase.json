@@ -79,7 +79,7 @@
               {
                 "multi_match": {
                   "type": "phrase",
-                  "query": "spyod 'jug",
+                  "query": "dri med 'od zer",
                   "fields": [
                     "seriesName_bo_x_ewts^0.1",
                     "seriesName_en^0.1",

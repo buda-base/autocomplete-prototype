@@ -1,0 +1,47 @@
+{
+    "query": {
+        "bool": {
+            "must": [
+                {
+                    "bool": {
+                        "should": [
+                            {
+                                "term": {
+                                    "_id": "O1PD96682"
+                                }
+                            },
+                            {
+                                "term": {
+                                    "other_id": "O1PD96682"
+                                }
+                            },
+                            {
+                                "term": {
+                                    "graphs": "O1PD96682"
+                                }
+                            }
+                        ],
+                        "minimum_should_match": 1
+                    }
+                },
+                {
+                    "bool": {
+                        "should": [
+                            {
+                                "match_phrase": {
+                                    "prefLabel_bo_x_ewts": "rdo rjes rnam par 'joms pa zhes bya ba'i gzungs"
+                                }
+                            },
+                            {
+                                "match_phrase": {
+                                    "prefLabel_en": "rdo rjes rnam par 'joms pa zhes bya ba'i gzungs"
+                                }
+                            }
+                        ],
+                        "minimum_should_match": 1
+                    }
+                }
+            ]
+        }
+    }
+}

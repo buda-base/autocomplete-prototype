@@ -197,7 +197,7 @@ def do_msearch(os_jsons, index):
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'
     r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=5, verify=False)
-    return r.content
+    return r.json()
 
 def tibetan(query_str):
     if re.search(r'[\u0F00-\u0FFF]', query_str):
@@ -407,7 +407,7 @@ def tweak_query(data, fuzzy=False):
 
 def tweak_mquery(jsons, fuzzy=False):
     res = []
-    for i, j in jsons:
+    for i, j in enumerate(jsons):
         if i % 2 == 0:
             res.append(j)
         else:
@@ -430,7 +430,7 @@ def normal_msearch():
     normal_tweaks = tweak_mquery(original_jsons)
     results = do_msearch(normal_tweaks, 'bdrc_prod')
 
-    if results[0]['hits']['total']['value'] == 0:
+    if results["responses"][0]['hits']['total']['value'] == 0:
         fuzzy_tweaks = tweak_mquery(original_jsons, fuzzy=True)
         if fuzzy_tweaks is not None:
             results = do_msearch(fuzzy_tweaks, 'bdrc_prod')

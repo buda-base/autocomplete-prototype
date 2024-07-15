@@ -18,7 +18,7 @@ CORS(app)  # Enable CORS for all domains on all routes
 def get_fields(structure, langs=['bo_x_ewts', 'en']):
     # fields in the descending order of occurrences in the index
     # use the order to limit the number of fields when the full list would be too long (requires python 3.7)
-    all_fields = {"prefLabel_bo_x_ewts": 1, "altLabel_bo_x_ewts": 0.6, "comment_bo_x_ewts": 0.0001, "author": 0.1, "comment_en": 0.0001, "authorshipStatement_bo_x_ewts": 0.005, "summary_en": 0.2, "altLabel_cmg_x_poppe": 0.6, "prefLabel_en": 1, "altLabel_cmg_mong": 0.6, "prefLabel_km": 1, "publisherName_bo_x_ewts": 0.01, "comment": 0.0001, "publisherLocation_bo_x_ewts": 0.01, "prefLabel_zh_hani": 1, "authorshipStatement_en": 0.005, "prefLabel_km_x_twktt": 1, "publisherLocation_en": 0.01, "altLabel_zh_latn_pinyin_x_ndia": 0.6, "publisherName_en": 0.01, "seriesName_res": 0.1, "altLabel_en": 0.6, "summary_bo_x_ewts": 0.2, "altLabel_km": 0.6, "seriesName_bo_x_ewts": 0.1, "issueName": 0.1, "altLabel_km_x_twktt": 0.6, "prefLabel_pi_khmr": 1, "altLabel_zh_hani": 0.6, "prefLabel_zh_latn_pinyin_x_ndia": 1, "translator": 0.1, "altLabel_sa_x_iast": 0.6, "prefLabel_sa_x_ndia": 1, "prefLabel_sa_alalc97": 1, "prefLabel_sa_x_iast": 1, "prefLabel_pi_x_twktt": 1, "seriesName_en": 0.1, "altLabel_pi_khmr": 0.6, "altLabel_pi_x_twktt": 0.6, "publisherName_zh_hani": 0.01, "altLabel_sa_x_ndia": 0.6, "prefLabel_zh_latn_wadegile": 1, "publisherLocation_zh_hani": 0.01, "altLabel_bo_alalc97": 0.6, "seriesName_zh_hani": 0.1, "prefLabel_mn_x_trans": 1, "altLabel_mn_x_trans": 0.6, "authorshipStatement_zh_hani": 0.005, "prefLabel": 1, "altLabel_zh_latn_pinyin": 0.6, "comment_zh_hani": 0.0001, "altLabel_sa_alalc97": 0.6, "prefLabel_mn_alalc97": 1, "prefLabel_sa_deva": 1, "altLabel_zh_latn_wadegile": 0.6, "publisherLocation_zh_latn_pinyin_x_ndia": 0.01, "authorshipStatement_zh_latn_pinyin_x_ndia": 0.005, "publisherName_zh_latn_pinyin_x_ndia": 0.01, "prefLabel_zh_latn_pinyin": 1, "comment_sa_x_iast": 0.0001, "altLabel_mn_alalc97": 0.6, "seriesName_zh_latn_pinyin_x_ndia": 0.1, "prefLabel_bo_alalc97": 1, "prefLabel_mn": 1, "prefLabel_pi_x_iast": 1, "prefLabel_sa_x_trans": 1, "prefLabel_fr": 1, "summary_zh_hani": 0.2, "altLabel_mn": 0.6, "altLabel_sa_deva": 0.6, "prefLabel_bo_latn_wadegile": 1, "publisherName_bo_latn_wadegile": 0.01, "altLabel_bo_latn_wadegile": 0.6, "comment_bo_latn_wadegile": 0.0001, "prefLabel_ja": 1, "altLabel_bo_latn_pinyin": 0.6, "publisherName_fr": 0.01, "authorshipStatement_zh": 0.005, "prefLabel_fr_alalc97": 1, "prefLabel_km_x_unspec": 1, "prefLabel_ru": 1, "prefLabel_sa_x_phon_en_m_tbrc": 1, "prefLabel_sa_x_rma": 1, "prefLabel_zh_alalc97": 1, "summary_sa_x_ndia": 0.2, "altLabel_bo_x_ndia": 0.6, "altLabel_de": 0.6, "altLabel_ja_alalc97": 0.6, "altLabel_ja_x_ndia": 0.6, "altLabel_km_x_unspec": 0.6, "altLabel_pi_x_iast": 0.6, "altLabel_sa_x_rma": 0.6, "altLabel_sa_x_trans": 0.6, "altLabel_zh_alalc97": 0.6, "altLabel_zh_x_ndia": 0.6, "authorshipStatement_sa_deva": 0.005, "authorshipStatement_zh_alalc97": 0.005, "comment_bo_alalc97": 0.0001, "comment_bo_x_ndia": 0.0001, "comment_sa_deva": 0.0001, "comment_sa_x_ndia": 0.0001, "comment_zh_latn_pinyin": 0.0001, "prefLabel_bo_x_acip": 1, "prefLabel_de": 1, "prefLabel_fr_x_iast": 1, "prefLabel_ja_alalc97": 1, "prefLabel_ja_x_ndia": 1, "prefLabel_ru_alalc97": 1, "publisherLocation_bo_latn_wadegile": 0.01, "publisherLocation_fr": 0.01, "publisherLocation_mn_alalc97": 0.01, "publisherLocation_sa_deva": 0.01, "publisherName_sa_deva": 0.01, "publisherName_sa_x_iast": 0.01}
+    all_fields = {"prefLabel_bo_x_ewts": 1, "altLabel_bo_x_ewts": 0.6, "comment_bo_x_ewts": 0.0001, "author": 0.1, "comment_en": 0.00005, "authorshipStatement_bo_x_ewts": 0.005, "summary_en": 0.1, "altLabel_cmg_x_poppe": 0.6, "prefLabel_en": 0.5, "altLabel_cmg_mong": 0.6, "prefLabel_km": 1, "publisherName_bo_x_ewts": 0.01, "comment": 0.0001, "publisherLocation_bo_x_ewts": 0.01, "prefLabel_zh_hani": 1, "authorshipStatement_en": 0.00025, "prefLabel_km_x_twktt": 1, "publisherLocation_en": 0.005, "altLabel_zh_latn_pinyin_x_ndia": 0.6, "publisherName_en": 0.005, "seriesName_res": 0.1, "altLabel_en": 0.3, "summary_bo_x_ewts": 0.2, "altLabel_km": 0.6, "seriesName_bo_x_ewts": 0.1, "issueName": 0.1, "altLabel_km_x_twktt": 0.6, "prefLabel_pi_khmr": 1, "altLabel_zh_hani": 0.6, "prefLabel_zh_latn_pinyin_x_ndia": 1, "translator": 0.1, "altLabel_sa_x_iast": 0.6, "prefLabel_sa_x_ndia": 1, "prefLabel_sa_alalc97": 1, "prefLabel_sa_x_iast": 1, "prefLabel_pi_x_twktt": 1, "seriesName_en": 0.05, "altLabel_pi_khmr": 0.6, "altLabel_pi_x_twktt": 0.6, "publisherName_zh_hani": 0.01, "altLabel_sa_x_ndia": 0.6, "prefLabel_zh_latn_wadegile": 1, "publisherLocation_zh_hani": 0.01, "altLabel_bo_alalc97": 0.6, "seriesName_zh_hani": 0.1, "prefLabel_mn_x_trans": 1, "altLabel_mn_x_trans": 0.6, "authorshipStatement_zh_hani": 0.005, "prefLabel": 1, "altLabel_zh_latn_pinyin": 0.6, "comment_zh_hani": 0.0001, "altLabel_sa_alalc97": 0.6, "prefLabel_mn_alalc97": 1, "prefLabel_sa_deva": 1, "altLabel_zh_latn_wadegile": 0.6, "publisherLocation_zh_latn_pinyin_x_ndia": 0.01, "authorshipStatement_zh_latn_pinyin_x_ndia": 0.005, "publisherName_zh_latn_pinyin_x_ndia": 0.01, "prefLabel_zh_latn_pinyin": 1, "comment_sa_x_iast": 0.0001, "altLabel_mn_alalc97": 0.6, "seriesName_zh_latn_pinyin_x_ndia": 0.1, "prefLabel_bo_alalc97": 1, "prefLabel_mn": 1, "prefLabel_pi_x_iast": 1, "prefLabel_sa_x_trans": 1, "prefLabel_fr": 1, "summary_zh_hani": 0.2, "altLabel_mn": 0.6, "altLabel_sa_deva": 0.6, "prefLabel_bo_latn_wadegile": 1, "publisherName_bo_latn_wadegile": 0.01, "altLabel_bo_latn_wadegile": 0.6, "comment_bo_latn_wadegile": 0.0001, "prefLabel_ja": 1, "altLabel_bo_latn_pinyin": 0.6, "publisherName_fr": 0.01, "authorshipStatement_zh": 0.005, "prefLabel_fr_alalc97": 1, "prefLabel_km_x_unspec": 1, "prefLabel_ru": 1, "prefLabel_sa_x_phon_en_m_tbrc": 0.5, "prefLabel_sa_x_rma": 1, "prefLabel_zh_alalc97": 1, "summary_sa_x_ndia": 0.2, "altLabel_bo_x_ndia": 0.6, "altLabel_de": 0.6, "altLabel_ja_alalc97": 0.6, "altLabel_ja_x_ndia": 0.6, "altLabel_km_x_unspec": 0.6, "altLabel_pi_x_iast": 0.6, "altLabel_sa_x_rma": 0.6, "altLabel_sa_x_trans": 0.6, "altLabel_zh_alalc97": 0.6, "altLabel_zh_x_ndia": 0.6, "authorshipStatement_sa_deva": 0.005, "authorshipStatement_zh_alalc97": 0.005, "comment_bo_alalc97": 0.0001, "comment_bo_x_ndia": 0.0001, "comment_sa_deva": 0.0001, "comment_sa_x_ndia": 0.0001, "comment_zh_latn_pinyin": 0.0001, "prefLabel_bo_x_acip": 1, "prefLabel_de": 1, "prefLabel_fr_x_iast": 1, "prefLabel_ja_alalc97": 1, "prefLabel_ja_x_ndia": 1, "prefLabel_ru_alalc97": 1, "publisherLocation_bo_latn_wadegile": 0.01, "publisherLocation_fr": 0.01, "publisherLocation_mn_alalc97": 0.01, "publisherLocation_sa_deva": 0.01, "publisherName_sa_deva": 0.01, "publisherName_sa_x_iast": 0.01}
 
     fields = {k: v for k, v in all_fields.items() if any(k.endswith(lang) for lang in langs)}
 
@@ -31,6 +31,108 @@ def get_fields(structure, langs=['bo_x_ewts', 'en']):
     elif structure == 'as_dict':
         return dict(list(fields.items()))
 
+def text_json(query_str):
+    '''
+    GET /bdrc_etext_prod/_search
+    {
+    "query": {
+        "nested": {
+        "path": "chunks",
+        "query": {
+            "multi_match": {
+            "type": "phrase",
+            "query": "མཚོ་བྱང་བོད་རིགས་རང་སྐྱོང་ཁུལ་གྱི",
+            "fields": ["chunks.text_bo"]
+            }
+        }
+        }
+    }
+    }
+    '''
+def big_json(query_str):
+    # all queries go to "queries" under "dis_max"
+    big_query = {
+        "dis_max": {
+            "queries": []
+        }
+    }
+
+    # First, get similar phrases from bdrc_autosuggest with fuzzy match.
+    # This is a workaround to emulate fuzzy phrase match
+    os_json = autosuggest_json(query_str)
+    r = do_search(os_json, 'bdrc_autosuggest')
+    try: hits = r['suggest']['autocomplete'][0]['options']
+    except KeyError:
+        hits = {}
+    matches = set()
+    length = len(re.split("[^a-zA-Z0-9+']", query_str))
+    for hit in hits:
+        matches.add(' '.join(re.split("[^a-zA-Z0-9+']", hit['text'])[:length]))
+
+    weight_fields = get_fields('with_weights')
+    # Now we have phrases that do exist in bdrc_prod
+    # Add them to the query
+    for match in matches:
+        should = {
+            'bool': {
+                'must': [
+                    {
+                        'multi_match': {
+                            'type': 'phrase', 
+                            'query': match, 
+                            'fields': weight_fields
+                        }
+                    }
+                ],
+                'boost': 0.8
+            }
+        }
+        big_query['dis_max']['queries'].append(should)
+
+    # 1. full query perfect match
+    should = {
+        'bool': {
+            'must': [
+                {
+                    'multi_match': {
+                        'type': 'phrase', 
+                        'query': query_str, 
+                        'fields': weight_fields
+                    }
+                }
+            ],
+            'boost': 1.1
+        }
+    }
+    big_query['dis_max']['queries'].append(should)
+
+    # 2. create all two-phrase combinations of the keywords
+    query_words = re.split("[^a-zA-Z0-9+']", query_str)
+    number_of_tokens = len(query_words)
+    if number_of_tokens > 2:
+        for cut in range(1, number_of_tokens):
+            if len(big_query['dis_max']['queries']) < 12:
+                phrase1 = ' '.join(query_words[:cut])
+                phrase2 = ' '.join(query_words[cut:])
+                if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
+                    continue
+                # add a phrase pair in "must" which will go inside "should"
+                must = []
+                for phrase in [phrase1, phrase2]:
+                    must.append ({
+                        "multi_match": {
+                            "type": "phrase",
+                            "query": phrase,
+                            "fields": weight_fields
+                        }
+                    })
+                # append the pair to "should"
+                    big_query['dis_max']['queries'].append({'bool': {'must': must}})
+
+    #print(json.dumps(big_query, indent=2))
+    return(big_query)
+
+# deprecated (keep until big_json surely works)
 def fuzzy_phrase_json(query_str):
 
     # We are here because the query did not match anything.
@@ -74,6 +176,7 @@ def fuzzy_phrase_json(query_str):
         fuzzy_phrase_query['dis_max']['queries'].append(should)
     return fuzzy_phrase_query
 
+# deprecated (keep until big_json surely works)
 def phrase_match_json(query_str):
     query_words = re.split('[ /_]+', query_str)
     weight_fields = get_fields('with_weights')
@@ -368,8 +471,8 @@ def normal_search(test_json=None):
     # production
     else:
         data = request.json
-    query_str = get_query_str(data)
 
+    query_str = get_query_str(data)
     # id search
     if re.search(r'([^\s0-9]\d)', query_str):
         data = id_json_search(query_str)
@@ -378,17 +481,25 @@ def normal_search(test_json=None):
 
     # normal search
     else:
-        phrase_json = phrase_match_json(query_str)
-        data = replace_bdrc_query(data, phrase_json)
+        big_query = big_json(query_str)
+        data = replace_bdrc_query(data, big_query)
 
     results = do_search(data, 'bdrc_prod')
+    #print(json.dumps(results, indent=4))
 
+    if 'error' in results:
+        print(data)
+        print()
+        print(results)
+
+    '''
     # zero hits, try fuzzy phrase
     if __name__ == '__main__' and results['hits']['total']['value'] == 0:
         fuzzy_json = fuzzy_phrase_json(query_str)
         if fuzzy_json:
             data = replace_bdrc_query(request.json, fuzzy_json)
             results = do_search(data, 'bdrc_prod')
+    '''
 
     return results
 

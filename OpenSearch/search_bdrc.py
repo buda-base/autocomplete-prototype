@@ -176,7 +176,7 @@ def fuzzy_phrase_json(query_str):
         fuzzy_phrase_query['dis_max']['queries'].append(should)
     return fuzzy_phrase_query
 
-# deprecated (keep until big_json surely works)
+# deprecated
 def phrase_match_json(query_str):
     query_words = re.split('[ /_]+', query_str)
     weight_fields = get_fields('with_weights')
@@ -276,6 +276,7 @@ def autosuggest_json(query_str, scope='all'):
     }
     return(os_json)
 
+# deprecated
 def do_search(os_json, index):
     if __name__ != '__main__':
         return os_json
@@ -285,6 +286,7 @@ def do_search(os_json, index):
     r = requests.post(url, headers=headers, auth=auth, json=os_json, timeout=5, verify=False)
     return r.json()
 
+# deprecated
 def jsons_to_ndjsonbytes(jsons):
     fp = io.BytesIO()  # file-like object
     with jsonlines.Writer(fp) as writer:
@@ -294,8 +296,20 @@ def jsons_to_ndjsonbytes(jsons):
     fp.close()
     return b
 
-def do_msearch(os_jsons, index):
+# deprecated
+def X_do_msearch(os_jsons, index):
     ndjson = jsons_to_ndjsonbytes(os_jsons)
+    headers = {'Content-Type': 'application/x-ndjson'}
+    auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
+    url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'
+    print(ndjson)
+    r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=5, verify=False)
+    return r.json()
+
+def do_msearch(os_json, index):
+    ndjson = f'{{"index": "{index}"}}' + '\n' + json.dumps(os_json) + '\n'
+    if __name__ != '__main__':
+        return ndjson
     headers = {'Content-Type': 'application/x-ndjson'}
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'
@@ -392,17 +406,6 @@ def id_json_search(query_str):
 
     return os_json
 
-# not in use
-def find_bdrc_query_rec(json_obj):
-    if 'query' in json_obj and isinstance(json_obj['query'], str):
-        return json_obj['query']
-    for key, value in json_obj.items():
-        if isinstance(value, dict):
-            result = find_bdrc_query_rec(value)
-            if result is not None:
-                return result
-    return None
-
 def replace_bdrc_query(json_obj, replacement):
     try: json_obj["query"]["function_score"]["query"]["bool"]["must"] = [replacement]
     except KeyError:
@@ -462,6 +465,7 @@ def autosuggest():
     #print(results)
     return results
 
+# deprecated
 # normal search
 @app.route('/search', methods=['POST', 'GET'])
 def normal_search(test_json=None):
@@ -503,6 +507,7 @@ def normal_search(test_json=None):
 
     return results
 
+# deprecated
 def tweak_query(data, fuzzy=False):
     query_str = get_query_str(data)
     # id search
@@ -516,6 +521,7 @@ def tweak_query(data, fuzzy=False):
         return replace_bdrc_query(request.json, fuzzy_json)
     return None
 
+# deprecated
 def tweak_mquery(jsons, fuzzy=False):
     res = []
     for i, j in enumerate(jsons):
@@ -530,6 +536,34 @@ def tweak_mquery(jsons, fuzzy=False):
 
 # normal search
 @app.route('/msearch', methods=['POST', 'GET'])
+def msearch():
+    data = request.data
+    data = data.split(b'\n', 1)[1]
+    data = json.loads(data)
+
+    query_str = get_query_str(data)
+    # id search
+    if re.search(r'([^\s0-9]\d)', query_str):
+        data = id_json_search(query_str)
+        results = do_msearch(data, 'bdrc_prod')
+        return results
+
+    # normal search
+    else:
+        big_query = big_json(query_str)
+        data = replace_bdrc_query(data, big_query)
+
+    results = do_msearch(data, 'bdrc_prod')
+    #print(json.dumps(results, indent=4))
+
+    if 'error' in results:
+        print(json.dumps(data, indent=4))
+        print('----')
+        print(results)
+    
+    return results
+
+# deprecated
 def normal_msearch():
     original_jsons = []
     fp = io.BytesIO(request.data)

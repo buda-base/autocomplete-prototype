@@ -278,8 +278,6 @@ def autosuggest_json(query_str, scope='all'):
 
 # deprecated
 def do_search(os_json, index):
-    if __name__ != '__main__':
-        return os_json
     headers = {'Content-Type': 'application/json'}
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_search'
@@ -308,8 +306,6 @@ def X_do_msearch(os_jsons, index):
 
 def do_msearch(os_json, index):
     ndjson = f'{{"index": "{index}"}}' + '\n' + json.dumps(os_json) + '\n'
-    if __name__ != '__main__':
-        return ndjson
     headers = {'Content-Type': 'application/x-ndjson'}
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'

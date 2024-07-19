@@ -17,7 +17,6 @@ CORS(app)  # Enable CORS for all domains on all routes
 
 def get_fields(structure, langs=['bo_x_ewts', 'en']):
     # if more than two languages, the two-phrase match starts reducing phrase pairs to avoid too big queries, and search suffers
-
     all_fields = {"prefLabel_bo_x_ewts": 1, "altLabel_bo_x_ewts": 0.6, "comment_bo_x_ewts": 0.0001, "author": 0.1, "comment_en": 0.00005, "authorshipStatement_bo_x_ewts": 0.005, "summary_en": 0.1, "altLabel_cmg_x_poppe": 0.6, "prefLabel_en": 0.5, "altLabel_cmg_mong": 0.6, "prefLabel_km": 1, "publisherName_bo_x_ewts": 0.01, "comment": 0.0001, "publisherLocation_bo_x_ewts": 0.01, "prefLabel_zh_hani": 1, "authorshipStatement_en": 0.00025, "prefLabel_km_x_twktt": 1, "publisherLocation_en": 0.005, "altLabel_zh_latn_pinyin_x_ndia": 0.6, "publisherName_en": 0.005, "seriesName_res": 0.1, "altLabel_en": 0.3, "summary_bo_x_ewts": 0.2, "altLabel_km": 0.6, "seriesName_bo_x_ewts": 0.1, "issueName": 0.1, "altLabel_km_x_twktt": 0.6, "prefLabel_pi_khmr": 1, "altLabel_zh_hani": 0.6, "prefLabel_zh_latn_pinyin_x_ndia": 1, "translator": 0.1, "altLabel_sa_x_iast": 0.6, "prefLabel_sa_x_ndia": 1, "prefLabel_sa_alalc97": 1, "prefLabel_sa_x_iast": 1, "prefLabel_pi_x_twktt": 1, "seriesName_en": 0.05, "altLabel_pi_khmr": 0.6, "altLabel_pi_x_twktt": 0.6, "publisherName_zh_hani": 0.01, "altLabel_sa_x_ndia": 0.6, "prefLabel_zh_latn_wadegile": 1, "publisherLocation_zh_hani": 0.01, "altLabel_bo_alalc97": 0.6, "seriesName_zh_hani": 0.1, "prefLabel_mn_x_trans": 1, "altLabel_mn_x_trans": 0.6, "authorshipStatement_zh_hani": 0.005, "prefLabel": 1, "altLabel_zh_latn_pinyin": 0.6, "comment_zh_hani": 0.0001, "altLabel_sa_alalc97": 0.6, "prefLabel_mn_alalc97": 1, "prefLabel_sa_deva": 1, "altLabel_zh_latn_wadegile": 0.6, "publisherLocation_zh_latn_pinyin_x_ndia": 0.01, "authorshipStatement_zh_latn_pinyin_x_ndia": 0.005, "publisherName_zh_latn_pinyin_x_ndia": 0.01, "prefLabel_zh_latn_pinyin": 1, "comment_sa_x_iast": 0.0001, "altLabel_mn_alalc97": 0.6, "seriesName_zh_latn_pinyin_x_ndia": 0.1, "prefLabel_bo_alalc97": 1, "prefLabel_mn": 1, "prefLabel_pi_x_iast": 1, "prefLabel_sa_x_trans": 1, "prefLabel_fr": 1, "summary_zh_hani": 0.2, "altLabel_mn": 0.6, "altLabel_sa_deva": 0.6, "prefLabel_bo_latn_wadegile": 1, "publisherName_bo_latn_wadegile": 0.01, "altLabel_bo_latn_wadegile": 0.6, "comment_bo_latn_wadegile": 0.0001, "prefLabel_ja": 1, "altLabel_bo_latn_pinyin": 0.6, "publisherName_fr": 0.01, "authorshipStatement_zh": 0.005, "prefLabel_fr_alalc97": 1, "prefLabel_km_x_unspec": 1, "prefLabel_ru": 1, "prefLabel_sa_x_phon_en_m_tbrc": 0.5, "prefLabel_sa_x_rma": 1, "prefLabel_zh_alalc97": 1, "summary_sa_x_ndia": 0.2, "altLabel_bo_x_ndia": 0.6, "altLabel_de": 0.6, "altLabel_ja_alalc97": 0.6, "altLabel_ja_x_ndia": 0.6, "altLabel_km_x_unspec": 0.6, "altLabel_pi_x_iast": 0.6, "altLabel_sa_x_rma": 0.6, "altLabel_sa_x_trans": 0.6, "altLabel_zh_alalc97": 0.6, "altLabel_zh_x_ndia": 0.6, "authorshipStatement_sa_deva": 0.005, "authorshipStatement_zh_alalc97": 0.005, "comment_bo_alalc97": 0.0001, "comment_bo_x_ndia": 0.0001, "comment_sa_deva": 0.0001, "comment_sa_x_ndia": 0.0001, "comment_zh_latn_pinyin": 0.0001, "prefLabel_bo_x_acip": 1, "prefLabel_de": 1, "prefLabel_fr_x_iast": 1, "prefLabel_ja_alalc97": 1, "prefLabel_ja_x_ndia": 1, "prefLabel_ru_alalc97": 1, "publisherLocation_bo_latn_wadegile": 0.01, "publisherLocation_fr": 0.01, "publisherLocation_mn_alalc97": 0.01, "publisherLocation_sa_deva": 0.01, "publisherName_sa_deva": 0.01, "publisherName_sa_x_iast": 0.01}
 
     fields = {k: v for k, v in all_fields.items() if any(k.endswith(lang) for lang in langs)}
@@ -179,6 +178,13 @@ def autosuggest_json(query_str, scope='all'):
         }
     }
     return(os_json)
+
+def do_search(os_json, index):
+    headers = {'Content-Type': 'application/json'}
+    auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
+    url = os.environ['OPENSEARCH_URL'] + f'/{index}/_search'
+    r = requests.post(url, headers=headers, auth=auth, json=os_json, timeout=5, verify=False)
+    return r.json()
 
 def do_msearch(jsons, index):
     headers = {'Content-Type': 'application/x-ndjson'}

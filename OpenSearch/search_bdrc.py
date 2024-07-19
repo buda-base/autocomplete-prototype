@@ -16,8 +16,8 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all domains on all routes
 
 def get_fields(structure, langs=['bo_x_ewts', 'en']):
-    # fields in the descending order of occurrences in the index
-    # use the order to limit the number of fields when the full list would be too long (requires python 3.7)
+    # if more than two languages, the two-phrase match starts reducing phrase pairs to avoid too big queries, and search suffers
+
     all_fields = {"prefLabel_bo_x_ewts": 1, "altLabel_bo_x_ewts": 0.6, "comment_bo_x_ewts": 0.0001, "author": 0.1, "comment_en": 0.00005, "authorshipStatement_bo_x_ewts": 0.005, "summary_en": 0.1, "altLabel_cmg_x_poppe": 0.6, "prefLabel_en": 0.5, "altLabel_cmg_mong": 0.6, "prefLabel_km": 1, "publisherName_bo_x_ewts": 0.01, "comment": 0.0001, "publisherLocation_bo_x_ewts": 0.01, "prefLabel_zh_hani": 1, "authorshipStatement_en": 0.00025, "prefLabel_km_x_twktt": 1, "publisherLocation_en": 0.005, "altLabel_zh_latn_pinyin_x_ndia": 0.6, "publisherName_en": 0.005, "seriesName_res": 0.1, "altLabel_en": 0.3, "summary_bo_x_ewts": 0.2, "altLabel_km": 0.6, "seriesName_bo_x_ewts": 0.1, "issueName": 0.1, "altLabel_km_x_twktt": 0.6, "prefLabel_pi_khmr": 1, "altLabel_zh_hani": 0.6, "prefLabel_zh_latn_pinyin_x_ndia": 1, "translator": 0.1, "altLabel_sa_x_iast": 0.6, "prefLabel_sa_x_ndia": 1, "prefLabel_sa_alalc97": 1, "prefLabel_sa_x_iast": 1, "prefLabel_pi_x_twktt": 1, "seriesName_en": 0.05, "altLabel_pi_khmr": 0.6, "altLabel_pi_x_twktt": 0.6, "publisherName_zh_hani": 0.01, "altLabel_sa_x_ndia": 0.6, "prefLabel_zh_latn_wadegile": 1, "publisherLocation_zh_hani": 0.01, "altLabel_bo_alalc97": 0.6, "seriesName_zh_hani": 0.1, "prefLabel_mn_x_trans": 1, "altLabel_mn_x_trans": 0.6, "authorshipStatement_zh_hani": 0.005, "prefLabel": 1, "altLabel_zh_latn_pinyin": 0.6, "comment_zh_hani": 0.0001, "altLabel_sa_alalc97": 0.6, "prefLabel_mn_alalc97": 1, "prefLabel_sa_deva": 1, "altLabel_zh_latn_wadegile": 0.6, "publisherLocation_zh_latn_pinyin_x_ndia": 0.01, "authorshipStatement_zh_latn_pinyin_x_ndia": 0.005, "publisherName_zh_latn_pinyin_x_ndia": 0.01, "prefLabel_zh_latn_pinyin": 1, "comment_sa_x_iast": 0.0001, "altLabel_mn_alalc97": 0.6, "seriesName_zh_latn_pinyin_x_ndia": 0.1, "prefLabel_bo_alalc97": 1, "prefLabel_mn": 1, "prefLabel_pi_x_iast": 1, "prefLabel_sa_x_trans": 1, "prefLabel_fr": 1, "summary_zh_hani": 0.2, "altLabel_mn": 0.6, "altLabel_sa_deva": 0.6, "prefLabel_bo_latn_wadegile": 1, "publisherName_bo_latn_wadegile": 0.01, "altLabel_bo_latn_wadegile": 0.6, "comment_bo_latn_wadegile": 0.0001, "prefLabel_ja": 1, "altLabel_bo_latn_pinyin": 0.6, "publisherName_fr": 0.01, "authorshipStatement_zh": 0.005, "prefLabel_fr_alalc97": 1, "prefLabel_km_x_unspec": 1, "prefLabel_ru": 1, "prefLabel_sa_x_phon_en_m_tbrc": 0.5, "prefLabel_sa_x_rma": 1, "prefLabel_zh_alalc97": 1, "summary_sa_x_ndia": 0.2, "altLabel_bo_x_ndia": 0.6, "altLabel_de": 0.6, "altLabel_ja_alalc97": 0.6, "altLabel_ja_x_ndia": 0.6, "altLabel_km_x_unspec": 0.6, "altLabel_pi_x_iast": 0.6, "altLabel_sa_x_rma": 0.6, "altLabel_sa_x_trans": 0.6, "altLabel_zh_alalc97": 0.6, "altLabel_zh_x_ndia": 0.6, "authorshipStatement_sa_deva": 0.005, "authorshipStatement_zh_alalc97": 0.005, "comment_bo_alalc97": 0.0001, "comment_bo_x_ndia": 0.0001, "comment_sa_deva": 0.0001, "comment_sa_x_ndia": 0.0001, "comment_zh_latn_pinyin": 0.0001, "prefLabel_bo_x_acip": 1, "prefLabel_de": 1, "prefLabel_fr_x_iast": 1, "prefLabel_ja_alalc97": 1, "prefLabel_ja_x_ndia": 1, "prefLabel_ru_alalc97": 1, "publisherLocation_bo_latn_wadegile": 0.01, "publisherLocation_fr": 0.01, "publisherLocation_mn_alalc97": 0.01, "publisherLocation_sa_deva": 0.01, "publisherName_sa_deva": 0.01, "publisherName_sa_x_iast": 0.01}
 
     fields = {k: v for k, v in all_fields.items() if any(k.endswith(lang) for lang in langs)}
@@ -132,102 +132,6 @@ def big_json(query_str):
     #print(json.dumps(big_query, indent=2))
     return(big_query)
 
-# deprecated (keep until big_json surely works)
-def fuzzy_phrase_json(query_str):
-
-    # We are here because the query did not match anything.
-    # First, get similar phrases from bdrc_autosuggest with fuzzy match
-    os_json = autosuggest_json(query_str)
-    r = do_search(os_json, 'bdrc_autosuggest')
-    try: hits = r['suggest']['autocomplete'][0]['options']
-    except KeyError:
-        return None
-    matches = set()
-    length = len(re.split("[^a-zA-Z0-9+']", query_str))
-    for hit in hits:
-        matches.add(' '.join(re.split("[^a-zA-Z0-9+']", hit['text'])[:length]))
-    if not matches:
-        return None
-
-    # Now we have phrases that do exist in bdrc_prod
-    # Query bdrc_prod to find them
-    weight_fields = get_fields('with_weights')
-    fuzzy_phrase_query = {
-        "dis_max": {
-            "queries": []
-        }
-    }
-
-    for match in matches:
-        should = {
-            'bool': {
-                'must': [
-                    {
-                        'multi_match': {
-                            'type': 'phrase', 
-                            'query': match, 
-                            'fields': weight_fields
-                        }
-                    }
-                ],
-                'boost': 1
-            }
-        }
-        fuzzy_phrase_query['dis_max']['queries'].append(should)
-    return fuzzy_phrase_query
-
-# deprecated
-def phrase_match_json(query_str):
-    query_words = re.split('[ /_]+', query_str)
-    weight_fields = get_fields('with_weights')
-    phrase_query = {
-        "dis_max": {
-            "queries": []
-        }
-    }
-
-    # collect 'queries'
-    # 1. full query perfect match
-    should = {
-        'bool': {
-            'must': [
-                {
-                    'multi_match': {
-                        'type': 'phrase', 
-                        'query': query_str, 
-                        'fields': weight_fields
-                    }
-                }
-            ],
-            'boost': 1.1
-        }
-    }
-    phrase_query['dis_max']['queries'].append(should)
-
-    # 2. create all two-phrase combinations of the query and append to "should"
-    number_of_tokens = len(query_words)
-    if number_of_tokens > 2 and number_of_tokens < 11:
-        for cut in range(1, number_of_tokens):
-            phrase1 = ' '.join(query_words[0:cut])
-            phrase2 = ' '.join(query_words[cut:])
-            if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
-                continue
-            # add a phrase pair in "must" which will go inside "should"
-            must = []
-            for phrase in [phrase1, phrase2]:
-                must.append ({
-                        "multi_match": {
-                            "type": "phrase",
-                            "query": phrase,
-                            "fields": weight_fields
-                        }
-                        })
-            # append the pair to "should"
-            phrase_query['dis_max']['queries'].append({'bool': {'must': must}})
-
-    #print(json.dumps(phrase_query, indent=2))
-    return(phrase_query)
-
 # remove stopwords from query
 def stopwords(query_str):
     prefixes = [
@@ -276,39 +180,11 @@ def autosuggest_json(query_str, scope='all'):
     }
     return(os_json)
 
-# deprecated
-def do_search(os_json, index):
-    headers = {'Content-Type': 'application/json'}
-    auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
-    url = os.environ['OPENSEARCH_URL'] + f'/{index}/_search'
-    r = requests.post(url, headers=headers, auth=auth, json=os_json, timeout=5, verify=False)
-    return r.json()
-
-# deprecated
-def jsons_to_ndjsonbytes(jsons):
-    fp = io.BytesIO()  # file-like object
-    with jsonlines.Writer(fp) as writer:
-        for j in jsons:
-            writer.write(j)
-    b =  fp.getvalue()
-    fp.close()
-    return b
-
-# deprecated
-def X_do_msearch(os_jsons, index):
-    ndjson = jsons_to_ndjsonbytes(os_jsons)
+def do_msearch(jsons, index):
     headers = {'Content-Type': 'application/x-ndjson'}
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'
-    print(ndjson)
-    r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=5, verify=False)
-    return r.json()
-
-def do_msearch(os_json, index):
-    ndjson = f'{{"index": "{index}"}}' + '\n' + json.dumps(os_json) + '\n'
-    headers = {'Content-Type': 'application/x-ndjson'}
-    auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
-    url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'
+    ndjson = '\n'.join(json.dumps(x) for x in jsons) + '\n'
     r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=5, verify=False)
     return r.json()
 
@@ -357,7 +233,7 @@ def id_json_autosuggest(query_str):
     }
     return os_json
 
-def id_json_search(query_str):
+def id_json_search(query_str, original_jsons):
     match_phrases = []
     if ' ' in query_str:
         id_code, label = re.split(' ', query_str, maxsplit=1)
@@ -400,14 +276,15 @@ def id_json_search(query_str):
     if match_phrases:
         os_json['query']['bool']['must'].append({'bool': {'should': match_phrases, 'minimum_should_match': 1}})
 
-    return os_json
+    return [original_jsons[0], os_json]
 
 def replace_bdrc_query(json_obj, replacement):
-    try: json_obj["query"]["function_score"]["query"]["bool"]["must"] = [replacement]
-    except KeyError:
-        print('json_ob', json_obj)
-        print('replacement', replacement)
-    return json_obj
+    for n in range(1, len(json_obj), 2):
+        try: json_obj[n]["query"]["function_score"]["query"]["bool"]["must"] = [replacement]
+        except KeyError:
+            print('json_ob', json_obj)
+            print('replacement', replacement)
+        return json_obj
 
 def get_query_str(data):
     # get query string from searchkit json
@@ -461,93 +338,29 @@ def autosuggest():
     #print(results)
     return results
 
-# deprecated
-# normal search
-@app.route('/search', methods=['POST', 'GET'])
-def normal_search(test_json=None):
-    # unit test
-    if test_json:
-        data = test_json
-    # production
-    else:
-        data = request.json
-
-    query_str = get_query_str(data)
-    # id search
-    if re.search(r'([^\s0-9]\d)', query_str):
-        data = id_json_search(query_str)
-        results = do_search(data, 'bdrc_prod')
-        return results
-
-    # normal search
-    else:
-        big_query = big_json(query_str)
-        data = replace_bdrc_query(data, big_query)
-
-    results = do_search(data, 'bdrc_prod')
-    #print(json.dumps(results, indent=4))
-
-    if 'error' in results:
-        print(data)
-        print()
-        print(results)
-
-    '''
-    # zero hits, try fuzzy phrase
-    if __name__ == '__main__' and results['hits']['total']['value'] == 0:
-        fuzzy_json = fuzzy_phrase_json(query_str)
-        if fuzzy_json:
-            data = replace_bdrc_query(request.json, fuzzy_json)
-            results = do_search(data, 'bdrc_prod')
-    '''
-
-    return results
-
-# deprecated
-def tweak_query(data, fuzzy=False):
-    query_str = get_query_str(data)
-    # id search
-    if not fuzzy and re.search(r'([^\s0-9]\d)', query_str):
-        return id_json_search(query_str)
-    if not fuzzy:
-        phrase_json = phrase_match_json(query_str)
-        return replace_bdrc_query(data, phrase_json)
-    fuzzy_json = fuzzy_phrase_json(query_str)
-    if fuzzy_json:
-        return replace_bdrc_query(request.json, fuzzy_json)
-    return None
-
-# deprecated
-def tweak_mquery(jsons, fuzzy=False):
-    res = []
-    for i, j in enumerate(jsons):
-        if i % 2 == 0:
-            res.append(j)
-        else:
-            tweaked = tweak_query(j)
-            if tweaked is None:
-                return None
-            res.append(tweaked)
-    return res
-
-# normal search
+# normal msearch
 @app.route('/msearch', methods=['POST', 'GET'])
 def msearch():
-    data = request.data
-    data = data.split(b'\n', 1)[1]
-    data = json.loads(data)
+    ndjson = request.data.decode('utf-8')
+    original_jsons = []
+    for query in ndjson.split('\n')[:-1]:
+        original_jsons.append(json.loads(query))
 
-    query_str = get_query_str(data)
+    query_str = get_query_str(original_jsons[1])
+
     # id search
     if re.search(r'([^\s0-9]\d)', query_str):
-        data = id_json_search(query_str)
+        data = id_json_search(query_str, original_jsons)
+
+        print(json.dumps(data, indent=4))
+
         results = do_msearch(data, 'bdrc_prod')
         return results
 
     # normal search
     else:
         big_query = big_json(query_str)
-        data = replace_bdrc_query(data, big_query)
+        data = replace_bdrc_query(original_jsons, big_query)
 
     results = do_msearch(data, 'bdrc_prod')
     #print(json.dumps(results, indent=4))
@@ -559,24 +372,5 @@ def msearch():
     
     return results
 
-# deprecated
-def normal_msearch():
-    original_jsons = []
-    fp = io.BytesIO(request.data)
-    with jsonlines.Reader(fp) as reader:
-        for obj in reader:
-            original_jsons.append(obj)
-    fp.close()
-
-    normal_tweaks = tweak_mquery(original_jsons)
-    results = do_msearch(normal_tweaks, 'bdrc_prod')
-
-    if results["responses"][0]['hits']['total']['value'] == 0:
-        fuzzy_tweaks = tweak_mquery(original_jsons, fuzzy=True)
-        if fuzzy_tweaks is not None:
-            results = do_msearch(fuzzy_tweaks, 'bdrc_prod')
-    
-    return results
-
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, host='0.0.0.0')

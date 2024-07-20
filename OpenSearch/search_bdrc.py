@@ -378,5 +378,10 @@ def msearch():
     
     return results
 
+# normal search
+@app.route('/search', methods=['POST', 'GET'])
+def search():
+    return do_search(request.json())
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000, host='0.0.0.0')

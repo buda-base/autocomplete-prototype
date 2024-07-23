@@ -153,7 +153,7 @@ def one_doc(data, doc_id):
             elif 'altLabel_' in field:
                 altLabels[lang] = suggest_me_variations(value, weight * 0.6)
         # collect IDs for scoped autosuggest
-        elif field in ['associatedTradition', 'author', 'inCollection', 'translator', 'workGenre', 'workIsAbout', 'inRootInstance', 'hasSourcePrintery']:
+        elif field in ['associatedTradition', 'inRootInstance', 'associated_res']:
             scope += value
 
     for lang in prefLabels:

@@ -62,7 +62,7 @@ def big_json(query_str):
     r = do_search(os_json, 'bdrc_autosuggest')
     try: hits = r['suggest']['autocomplete'][0]['options']
     except KeyError:
-        hits = {}
+        hits = []
     matches = set()
     length = len(re.split("[^a-zA-Z0-9+']", query_str))
     for hit in hits:
@@ -158,7 +158,7 @@ def stopwords(query_str):
     query_str = re.sub(suffix_match, '', query_str, flags=re.I)
     return query_str
 
-def autosuggest_json(query_str, scope='all'):
+def autosuggest_json(query_str, scope=['all']):
     os_json = {
         "suggest": {
             "autocomplete": {
@@ -169,14 +169,13 @@ def autosuggest_json(query_str, scope='all'):
                     "fuzzy" : {
                         "fuzziness" : "AUTO"
                     },
-                    "skip_duplicates": True,
-                    "contexts": {
-                        "scope": scope
-                    }
+                    "skip_duplicates": True
                 }
             }
         }
     }
+    if scope:
+        os_json['suggest']['autocomplete']['completion']['contexts'] = {'scope': scope}
     return(os_json)
 
 def do_search(os_json, index):
@@ -184,6 +183,8 @@ def do_search(os_json, index):
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_search'
     r = requests.post(url, headers=headers, auth=auth, json=os_json, timeout=5, verify=False)
+    if r.status_code != 200:
+        print(r.status_code, r.text)
     return r.json()
 
 def do_msearch(jsons, index):
@@ -192,6 +193,8 @@ def do_msearch(jsons, index):
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'
     ndjson = '\n'.join(json.dumps(x) for x in jsons) + '\n'
     r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=5, verify=False)
+    if r.status_code != 200:
+        print(r.status_code, r.text)
     return r.json()
 
 def tibetan(query_str):
@@ -212,7 +215,7 @@ def suggestion_highlight(user_input, suggestion):
     # could not highlight
     return suggestion
 
-def id_json_autosuggest(query_str):
+def id_json_autosuggest(query_str, scope=['all']):
     os_json = {
         "query": {
             "bool": {
@@ -237,6 +240,10 @@ def id_json_autosuggest(query_str):
             }
         }
     }
+
+    if scope != ['all']:
+        os_json['query']['bool']['filter'] = {'terms': {'associated_res': scope}}
+
     return os_json
 
 def id_json_search(query_str, original_jsons):
@@ -309,11 +316,23 @@ def get_query_str(data):
     query_str = re.sub('[/_]+$', '', query_str)
     query_str = stopwords(query_str)
 
+
+    # TODO convert 9th to 09
+    # convert 9 to 09
+    # separate number to it's own token
+
     return query_str
 
 @app.route('/autosuggest', methods=['POST', 'GET'])
-def autosuggest():
-    data = request.json
+def autosuggest(test_json=None):
+    data = request.json if not test_json else test_json
+    print('autosuggest 1', json.dumps(data))
+
+    # handle scope as None, [] or [""]
+    scope = data.get('scope', ['all'])
+    if not scope[0]:
+        scope = ['all']
+
     query_str = data['query'].strip()
     query_str, is_tibetan = tibetan(query_str)
     if not is_tibetan:
@@ -321,7 +340,7 @@ def autosuggest():
 
     # id in autosuggest
     if re.search(r'([^\s0-9]\d)', query_str):
-        os_json = id_json_autosuggest(query_str)
+        os_json = id_json_autosuggest(query_str, scope)
         r = do_search(os_json, 'bdrc_prod')
         results = []
         for hit in r['hits']['hits']:
@@ -331,25 +350,36 @@ def autosuggest():
                     labels.append(value[0].strip())
             results.append({'lang': hit['_source'].get('lang'), 'res': query_str + ' ' + '; '.join(labels)})
             #result.append(query_str + ' ' + '; '.join(labels))
-        return results
+        return results if not test_json else os_json
 
-    os_json = autosuggest_json(query_str)
+    # normal
+    os_json = autosuggest_json(query_str, scope)
     #print(json.dumps(os_json, indent=4))
     r = do_search(os_json, 'bdrc_autosuggest')
+
+    if 'error' in r:
+        print(json.dumps(os_json, indent=4))
+        print('----')
+        print(r)
+        return []
 
     results = []
     hits = r['suggest']['autocomplete'][0]['options']
     for hit in hits:
         results.append({'lang': hit['_source'].get('lang'), 'res': suggestion_highlight(query_str, hit['text'])})
     #print(results)
-    return results
+
+    print('autosuggest 2', json.dumps(os_json))
+    return results if not test_json else os_json
 
 # normal msearch
 @app.route('/msearch', methods=['POST', 'GET'])
-def msearch():
-    ndjson = request.data.decode('utf-8')
+def msearch(test_json=None):
+    ndjson = request.data.decode('utf-8') if not test_json else test_json
+    #print(111, ndjson)
     original_jsons = []
     for query in ndjson.split('\n')[:-1]:
+    #for query in ndjson.split('\n'):
         original_jsons.append(json.loads(query))
 
     query_str = get_query_str(original_jsons[1])
@@ -358,10 +388,10 @@ def msearch():
     if re.search(r'([^\s0-9]\d)', query_str):
         data = id_json_search(query_str, original_jsons)
 
-        print(json.dumps(data, indent=4))
+        #print(json.dumps(data, indent=4))
 
         results = do_msearch(data, 'bdrc_prod')
-        return results
+        return results if not test_json else data
 
     # normal search
     else:
@@ -376,7 +406,8 @@ def msearch():
         print('----')
         print(results)
     
-    return results
+    #print(222, data)
+    return results if not test_json else data
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, host='0.0.0.0')

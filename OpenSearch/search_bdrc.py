@@ -409,10 +409,5 @@ def msearch(test_json=None):
     #print(222, data)
     return results if not test_json else data
 
-# normal search
-@app.route('/search', methods=['POST', 'GET'])
-def search():
-    return do_search(request.json, 'bdrc_prod')
-
 if __name__ == '__main__':
     app.run(debug=True, port=5000, host='0.0.0.0')

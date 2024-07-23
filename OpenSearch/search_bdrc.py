@@ -56,7 +56,7 @@ def big_json(query_str):
         }
     }
 
-    # First, get similar phrases from bdrc_autosuggest with fuzzy match.
+    # 1. Get phrases from bdrc_autosuggest with fuzzy match.
     # This is a workaround to emulate fuzzy phrase match
     os_json = autosuggest_json(query_str)
     r = do_search(os_json, 'bdrc_autosuggest')
@@ -69,26 +69,27 @@ def big_json(query_str):
         matches.add(' '.join(re.split("[^a-zA-Z0-9+']", hit['text'])[:length]))
 
     weight_fields = get_fields('with_weights')
-    # Now we have phrases that do exist in bdrc_prod
-    # Add them to the query
+    # Now we have phrases that do exist in bdrc_prod and fuzzy match the query string
+    # Add them to the query if not identical
     for match in matches:
-        should = {
-            'bool': {
-                'must': [
-                    {
-                        'multi_match': {
-                            'type': 'phrase', 
-                            'query': match, 
-                            'fields': weight_fields
+        if match.lower() != query_str.lower():
+            should = {
+                'bool': {
+                    'must': [
+                        {
+                            'multi_match': {
+                                'type': 'phrase', 
+                                'query': match, 
+                                'fields': weight_fields
+                            }
                         }
-                    }
-                ],
-                'boost': 0.8
+                    ],
+                    'boost': 0.8
+                }
             }
-        }
-        big_query['dis_max']['queries'].append(should)
+            big_query['dis_max']['queries'].append(should)
 
-    # 1. full query perfect match
+    # 2. full query perfect match
     should = {
         'bool': {
             'must': [
@@ -105,7 +106,43 @@ def big_json(query_str):
     }
     big_query['dis_max']['queries'].append(should)
 
-    # 2. create all two-phrase combinations of the keywords
+    # 3. etext match
+    should = {
+        'bool': {
+            'must': [{
+                "has_child": {
+                    "type": "etext",
+                    "query": {
+                        "nested": {
+                            "path": "chunks",
+                            "query": {
+                                "bool": {
+                                "should": [
+                                    {
+                                        "match_phrase": {
+                                            "chunks.text_bo": query_str
+                                        }
+                                    },
+                                    {
+                                        "match_phrase": {
+                                            "chunks.text_en": query_str
+                                        }
+                                    }
+                                ],
+                                "minimum_should_match": 1
+                                }
+                            }
+                        }
+                    }
+                }
+            }],
+            'boost': 1000
+        }
+    }
+
+    big_query['dis_max']['queries'].append(should)
+
+    # 4. create all two-phrase combinations of the keywords
     query_words = re.split("[^a-zA-Z0-9+']", query_str)
     number_of_tokens = len(query_words)
     if number_of_tokens > 2:
@@ -326,7 +363,7 @@ def get_query_str(data):
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest(test_json=None):
     data = request.json if not test_json else test_json
-    print('autosuggest 1', json.dumps(data))
+    #print('autosuggest 1', json.dumps(data))
 
     # handle scope as None, [] or [""]
     scope = data.get('scope', ['all'])
@@ -369,7 +406,7 @@ def autosuggest(test_json=None):
         results.append({'lang': hit['_source'].get('lang'), 'res': suggestion_highlight(query_str, hit['text'])})
     #print(results)
 
-    print('autosuggest 2', json.dumps(os_json))
+    #print('autosuggest 2', json.dumps(os_json))
     return results if not test_json else os_json
 
 # normal msearch

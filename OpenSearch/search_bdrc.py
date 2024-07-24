@@ -1,4 +1,4 @@
-import json, re, requests, pyewts
+import json, re, requests
 from requests.auth import HTTPBasicAuth
 from flask import Flask, request
 from flask_cors import CORS
@@ -147,7 +147,7 @@ def big_json(query_str):
     number_of_tokens = len(query_words)
     if number_of_tokens > 2:
         for cut in range(1, number_of_tokens):
-            if len(big_query['dis_max']['queries']) < 12:
+            if len(big_query['dis_max']['queries']) < 11:
                 phrase1 = ' '.join(query_words[:cut])
                 phrase2 = ' '.join(query_words[cut:])
                 if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
@@ -358,7 +358,7 @@ def get_query_str(data):
     # convert 9 to 09
     # separate number to it's own token
 
-    return query_str
+    return query_str, is_tibetan
 
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest(test_json=None):
@@ -403,7 +403,11 @@ def autosuggest(test_json=None):
     results = []
     hits = r['suggest']['autocomplete'][0]['options']
     for hit in hits:
-        results.append({'lang': hit['_source'].get('lang'), 'res': suggestion_highlight(query_str, hit['text'])})
+        if is_tibetan:
+            suggestion = CONVERTER.toUnicode(hit['text'])
+        else:
+            suggestion = suggestion_highlight(query_str, hit['text'])
+        results.append({'lang': hit['_source'].get('lang'), 'res': suggestion})
     #print(results)
 
     #print('autosuggest 2', json.dumps(os_json))
@@ -419,7 +423,7 @@ def msearch(test_json=None):
     #for query in ndjson.split('\n'):
         original_jsons.append(json.loads(query))
 
-    query_str = get_query_str(original_jsons[1])
+    query_str, is_tibetan = get_query_str(original_jsons[1])
 
     # id search
     if re.search(r'([^\s0-9]\d)', query_str):

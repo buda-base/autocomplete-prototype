@@ -118,35 +118,15 @@ def get_weight(data):
 
     return int(score * 10000000)
 
-def truncate_label(label):
-    """
-    Cut the label at a sensible point before character 256
-
-    Currently only works for space-based languages (work required for Sanskrit and Chinese)
-    """
-    # Check if the string length is less than or equal to 256 characters
-    if len(label) <= 256:
-        return label
-
-    # Find the last space before the 256th character
-    cutoff = label.rfind(' ', 0, 256)
-
-    # If there is no space, just return the full string up to 256 characters
-    if cutoff == -1:
-        return label[:256]
-    
-    # Otherwise, return the string up to the last space found
-    return label[:cutoff]
-
 # create variations to begin suggestions at any token
 def suggest_me_variations(label_list, weight):
     variations = []
     for label in label_list:
         # remove shads from end and harmonise apostrophes
-        label = re.sub(r'[:/]+$', '', label.strip())
+        label = re.sub('/$', '', label.strip())
         label = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", label)
-        label = truncate_label(label)
-        tokens = re.split(r'\s+', label)
+        label = label[:256]
+        tokens = re.split('\s+', label)
         length = len(tokens)
         if length > 2:
             for i in range(0, len(tokens) - 1):

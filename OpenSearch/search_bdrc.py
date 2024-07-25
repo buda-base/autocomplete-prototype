@@ -12,6 +12,9 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from pyewts import pyewts
 CONVERTER = pyewts()
 
+# see https://github.com/buda-base/autocomplete-prototype/issues/10
+COMPLETION_MAX_INPUT_LENGTH=50
+
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all domains on all routes
 
@@ -360,6 +363,20 @@ def get_query_str(data):
 
     return query_str, is_tibetan
 
+def sanitize_hit_text(hit_text):
+    """
+    if the string is COMPLETION_MAX_INPUT_LENGTH long, it might have been cut in the
+    middle of a token, so we cut it at the end of the last complete token.
+
+    see https://github.com/buda-base/autocomplete-prototype/issues/10
+    """
+    if len(hit_text) < COMPLETION_MAX_INPUT_LENGTH:
+        return hit_text
+    cutoff = label.rfind(' ')
+    if cutoff == -1:
+        return hit_text
+    return hit_text[:cutoff]
+
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest(test_json=None):
     data = request.json if not test_json else test_json
@@ -403,10 +420,11 @@ def autosuggest(test_json=None):
     results = []
     hits = r['suggest']['autocomplete'][0]['options']
     for hit in hits:
+        hit_text = sanitize_hit_text(hit["text"])
         if is_tibetan:
-            suggestion = CONVERTER.toUnicode(hit['text'])
+            suggestion = CONVERTER.toUnicode(hit_text)
         else:
-            suggestion = suggestion_highlight(query_str, hit['text'])
+            suggestion = suggestion_highlight(query_str, hit_text)
         results.append({'lang': hit['_source'].get('lang'), 'res': suggestion})
     #print(results)
 

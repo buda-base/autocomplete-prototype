@@ -372,7 +372,7 @@ def sanitize_hit_text(hit_text):
     """
     if len(hit_text) < COMPLETION_MAX_INPUT_LENGTH:
         return hit_text
-    cutoff = label.rfind(' ')
+    cutoff = hit_text.rfind(' ')
     if cutoff == -1:
         return hit_text
     return hit_text[:cutoff]

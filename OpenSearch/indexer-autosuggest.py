@@ -18,6 +18,7 @@ def create_mappings():
             "properties": {
                 "suggest_me": {
                     "type": "completion",
+                    "max_input_length": 100,
                     "contexts": [
                         {
                             "name": "scope",
@@ -110,7 +111,7 @@ def get_weight(data):
 
     # popularity and db scores
     score *= data.get('pop_score', 0.4) - 0.3
-    score *= data.get('db_score', 0.5) - 0.1 # boost db score less
+    score *= data.get('db_score', 0.5) - 0.05 # boost db score less
 
     # etext quality todo
     # freshness todo
@@ -129,7 +130,7 @@ def suggest_me_variations(label_list, weight):
         length = len(tokens)
         if length > 2:
             for i in range(0, len(tokens) - 1):
-                partial_match = ' '.join(tokens[i: i+15])
+                partial_match = ' '.join(tokens[i: i+12])
                 variations.append({'input': partial_match, 'weight': int(weight * (1 - 0.01 * i))})
         else:
             variations.append({'input': label, 'weight': int(weight)})

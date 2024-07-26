@@ -13,7 +13,7 @@ from pyewts import pyewts
 CONVERTER = pyewts()
 
 # see https://github.com/buda-base/autocomplete-prototype/issues/10
-COMPLETION_MAX_INPUT_LENGTH=50
+COMPLETION_MAX_INPUT_LENGTH=100
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all domains on all routes

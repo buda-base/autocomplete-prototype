@@ -30,7 +30,7 @@ def get_fields(structure, langs=['bo_x_ewts', 'en']):
     elif structure == 'as_dict':
         return dict(list(fields.items()))
 
-def big_json(query_str):
+def big_json(query_str, query_str_bo):
     # all queries go to "queries" under "dis_max"
     big_query = {
         "dis_max": {
@@ -103,7 +103,7 @@ def big_json(query_str):
                                         "should": [
                                             {
                                                 "match_phrase": {
-                                                    "chunks.text_bo": query_str
+                                                    "chunks.text_bo": query_str_bo
                                                 }
                                             },
                                             {
@@ -134,8 +134,6 @@ def big_json(query_str):
         }
     }
 
-
-
     big_query['dis_max']['queries'].append(should)
 
     # 4. create all two-phrase combinations of the keywords
@@ -155,7 +153,7 @@ def big_json(query_str):
                         "multi_match": {
                             "type": "phrase",
                             "query": phrase,
-                            "fields": get_fields('with_weights', 'bo_x_ewts')
+                            "fields": get_fields('with_weights', ['bo_x_ewts'])
                         }
                     })
                 # append the pair to "should"
@@ -340,21 +338,23 @@ def get_query_str(data):
     except KeyError:
         return None
 
+    query_str_bo = query_str
+
     # clean up query string
     query_str = query_str.strip()
     query_str, is_tibetan = tibetan(query_str)
 
     if not is_tibetan:
-        query_str = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str)
-    query_str = re.sub('[/_]+$', '', query_str)
-    query_str = stopwords(query_str)
-
+        query_str = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str)    
+        query_str = re.sub('[/_]+$', '', query_str)
+        query_str = stopwords(query_str)
+        query_str_bo = CONVERTER.toUnicode(query_str)
 
     # TODO convert 9th to 09
     # convert 9 to 09
     # separate number to it's own token
 
-    return query_str, is_tibetan
+    return query_str, query_str_bo, is_tibetan
 
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest(test_json=None):
@@ -419,7 +419,7 @@ def msearch(test_json=None):
     #for query in ndjson.split('\n'):
         original_jsons.append(json.loads(query))
 
-    query_str, is_tibetan = get_query_str(original_jsons[1])
+    query_str, query_str_bo, is_tibetan = get_query_str(original_jsons[1])
 
     # id search
     if re.search(r'([^\s0-9]\d)', query_str):
@@ -432,11 +432,11 @@ def msearch(test_json=None):
 
     # normal search
     else:
-        big_query = big_json(query_str)
+        big_query = big_json(query_str, query_str_bo)
         data = replace_bdrc_query(original_jsons, big_query)
 
     results = do_msearch(data, 'bdrc_prod')
-    #print(json.dumps(results, indent=4))
+    print(json.dumps(data, indent=4))
 
     if 'error' in results:
         print('Error in query:', json.dumps(data, indent=4))

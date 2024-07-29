@@ -12,9 +12,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from pyewts import pyewts
 CONVERTER = pyewts()
 
-# see https://github.com/buda-base/autocomplete-prototype/issues/10
-COMPLETION_MAX_INPUT_LENGTH=100
-
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all domains on all routes
 
@@ -33,24 +30,6 @@ def get_fields(structure, langs=['bo_x_ewts', 'en']):
     elif structure == 'as_dict':
         return dict(list(fields.items()))
 
-def text_json(query_str):
-    '''
-    GET /bdrc_etext_prod/_search
-    {
-    "query": {
-        "nested": {
-        "path": "chunks",
-        "query": {
-            "multi_match": {
-            "type": "phrase",
-            "query": "མཚོ་བྱང་བོད་རིགས་རང་སྐྱོང་ཁུལ་གྱི",
-            "fields": ["chunks.text_bo"]
-            }
-        }
-        }
-    }
-    }
-    '''
 def big_json(query_str):
     # all queries go to "queries" under "dis_max"
     big_query = {
@@ -111,37 +90,51 @@ def big_json(query_str):
 
     # 3. etext match
     should = {
-        'bool': {
-            'must': [{
-                "has_child": {
-                    "type": "etext",
-                    "query": {
-                        "nested": {
-                            "path": "chunks",
-                            "query": {
-                                "bool": {
-                                "should": [
-                                    {
-                                        "match_phrase": {
-                                            "chunks.text_bo": query_str
-                                        }
-                                    },
-                                    {
-                                        "match_phrase": {
-                                            "chunks.text_en": query_str
-                                        }
+        "bool": {
+            "must": [
+                {
+                    "has_child": {
+                        "type": "etext",
+                        "query": {
+                            "nested": {
+                                "path": "chunks",
+                                "query": {
+                                    "bool": {
+                                        "should": [
+                                            {
+                                                "match_phrase": {
+                                                    "chunks.text_bo": query_str
+                                                }
+                                            },
+                                            {
+                                                "match_phrase": {
+                                                    "chunks.text_en": query_str
+                                                }
+                                            }
+                                        ]
                                     }
-                                ],
-                                "minimum_should_match": 1
+                                }
+                            }
+                        },
+                        "inner_hits": {
+                            "_source": {
+                                "includes": ["id"]
+                            },
+                            "highlight": {
+                                "fields": {
+                                    "chunks.text_bo": {},
+                                    "chunks.text_en": {}
                                 }
                             }
                         }
                     }
                 }
-            }],
-            'boost': 1000
+            ],
+            "boost": 0.4
         }
     }
+
+
 
     big_query['dis_max']['queries'].append(should)
 
@@ -162,7 +155,7 @@ def big_json(query_str):
                         "multi_match": {
                             "type": "phrase",
                             "query": phrase,
-                            "fields": weight_fields
+                            "fields": get_fields('with_weights', 'bo_x_ewts')
                         }
                     })
                 # append the pair to "should"
@@ -234,7 +227,7 @@ def do_msearch(jsons, index):
     ndjson = '\n'.join(json.dumps(x) for x in jsons) + '\n'
     r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=5, verify=False)
     if r.status_code != 200:
-        print(r.status_code, r.text)
+        print('Error from Opensearch:', r.status_code, r.text)
     return r.json()
 
 def tibetan(query_str):
@@ -363,20 +356,6 @@ def get_query_str(data):
 
     return query_str, is_tibetan
 
-def sanitize_hit_text(hit_text):
-    """
-    if the string is COMPLETION_MAX_INPUT_LENGTH long, it might have been cut in the
-    middle of a token, so we cut it at the end of the last complete token.
-
-    see https://github.com/buda-base/autocomplete-prototype/issues/10
-    """
-    if len(hit_text) < COMPLETION_MAX_INPUT_LENGTH:
-        return hit_text
-    cutoff = hit_text.rfind(' ')
-    if cutoff == -1:
-        return hit_text
-    return hit_text[:cutoff]
-
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest(test_json=None):
     data = request.json if not test_json else test_json
@@ -412,19 +391,18 @@ def autosuggest(test_json=None):
     r = do_search(os_json, 'bdrc_autosuggest')
 
     if 'error' in r:
-        print(json.dumps(os_json, indent=4))
+        print('Error in query:', json.dumps(os_json, indent=4))
         print('----')
-        print(r)
+        print('Opensearch error:', r)
         return []
 
     results = []
     hits = r['suggest']['autocomplete'][0]['options']
     for hit in hits:
-        hit_text = sanitize_hit_text(hit["text"])
         if is_tibetan:
-            suggestion = CONVERTER.toUnicode(hit_text)
+            suggestion = CONVERTER.toUnicode(hit['text'])
         else:
-            suggestion = suggestion_highlight(query_str, hit_text)
+            suggestion = suggestion_highlight(query_str, hit['text'])
         results.append({'lang': hit['_source'].get('lang'), 'res': suggestion})
     #print(results)
 
@@ -461,9 +439,9 @@ def msearch(test_json=None):
     #print(json.dumps(results, indent=4))
 
     if 'error' in results:
-        print(json.dumps(data, indent=4))
+        print('Error in query:', json.dumps(data, indent=4))
         print('----')
-        print(results)
+        print('Opensearch error:', results)
     
     #print(222, data)
     return results if not test_json else data

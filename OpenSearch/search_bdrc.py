@@ -89,7 +89,36 @@ def big_json(query_str, query_str_bo):
     big_query['dis_max']['queries'].append(should)
 
     # 3. etext match
-    should = {
+    big_query['dis_max']['queries'].append(etext_json(query_str, query_str_bo))
+
+    # 4. create all two-phrase combinations of the keywords
+    query_words = re.split("[^a-zA-Z0-9+']", query_str)
+    number_of_tokens = len(query_words)
+    if number_of_tokens > 2:
+        for cut in range(1, number_of_tokens):
+            if len(big_query['dis_max']['queries']) < 11:
+                phrase1 = ' '.join(query_words[:cut])
+                phrase2 = ' '.join(query_words[cut:])
+                if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
+                    continue
+                # add a phrase pair in "must" which will go inside "should"
+                must = []
+                for phrase in [phrase1, phrase2]:
+                    must.append ({
+                        "multi_match": {
+                            "type": "phrase",
+                            "query": phrase,
+                            "fields": get_fields('with_weights', ['bo_x_ewts'])
+                        }
+                    })
+                # append the pair to "should"
+                    big_query['dis_max']['queries'].append({'bool': {'must': must}})
+
+    #print(json.dumps(big_query, indent=2))
+    return(big_query)
+
+def etext_json(query_str, query_str_bo):
+    json_obj = {
         "bool": {
             "must": [
                 {
@@ -130,39 +159,11 @@ def big_json(query_str, query_str_bo):
                     }
                 }
             ],
-            "boost": 0.4
+            "boost": 10000
         }
     }
+    return json_obj
 
-    big_query['dis_max']['queries'].append(should)
-
-    # 4. create all two-phrase combinations of the keywords
-    query_words = re.split("[^a-zA-Z0-9+']", query_str)
-    number_of_tokens = len(query_words)
-    if number_of_tokens > 2:
-        for cut in range(1, number_of_tokens):
-            if len(big_query['dis_max']['queries']) < 11:
-                phrase1 = ' '.join(query_words[:cut])
-                phrase2 = ' '.join(query_words[cut:])
-                if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
-                    continue
-                # add a phrase pair in "must" which will go inside "should"
-                must = []
-                for phrase in [phrase1, phrase2]:
-                    must.append ({
-                        "multi_match": {
-                            "type": "phrase",
-                            "query": phrase,
-                            "fields": get_fields('with_weights', ['bo_x_ewts'])
-                        }
-                    })
-                # append the pair to "should"
-                    big_query['dis_max']['queries'].append({'bool': {'must': must}})
-
-    #print(json.dumps(big_query, indent=2))
-    return(big_query)
-
-# remove stopwords from query
 def stopwords(query_str):
     prefixes = [
         "mkhan [pm]o ", "rgya gar kyi ", "mkhan chen ", "a lag ", "a khu ", "rgan ", "rgan lags ", 
@@ -356,6 +357,37 @@ def get_query_str(data):
 
     return query_str, query_str_bo, is_tibetan
 
+def is_etext_only(original_jsons):
+    for one_json in original_jsons:
+        try:
+            if one_json['aggs']['etext_search']['terms']['field'] == 'etext_search':
+                return True
+        except: pass
+    return False
+
+def print_jsons(print_me, query_str=None):
+    print()
+    # export OPENSEARCH_PRINT="tests" to recreate tests
+    if os.getenv('OPENSEARCH_PRINT') == 'tests':
+        # save searchkit jsons in ./tests
+        if isinstance(print_me, list):
+            with open('tests/' + query_str + '.json', 'w') as f:
+                for p in print_me:
+                    f.write(json.dumps(p, indent=2))
+        # save OS query in ./tests
+        else:
+            with open('tests/' + query_str + '-expected.json', 'w') as f:
+                f.write(json.dumps(print_me, indent=2))
+
+    # export OPENSEARCH_PRINT="debug" to print to command line
+    elif os.getenv('OPENSEARCH_PRINT') == 'debug':
+        if isinstance(print_me, list):
+            for p in print_me:
+                print(json.dumps(p, indent=2))
+        else:
+            print(json.dumps(print_me, indent=2))
+
+
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest(test_json=None):
     data = request.json if not test_json else test_json
@@ -413,7 +445,6 @@ def autosuggest(test_json=None):
 @app.route('/msearch', methods=['POST', 'GET'])
 def msearch(test_json=None):
     ndjson = request.data.decode('utf-8') if not test_json else test_json
-    #print(111, ndjson)
     original_jsons = []
     for query in ndjson.split('\n')[:-1]:
     #for query in ndjson.split('\n'):
@@ -421,29 +452,34 @@ def msearch(test_json=None):
 
     query_str, query_str_bo, is_tibetan = get_query_str(original_jsons[1])
 
+    # create tests or debug
+    print_jsons(original_jsons, query_str)
+
     # id search
     if re.search(r'([^\s0-9]\d)', query_str):
         data = id_json_search(query_str, original_jsons)
-
-        #print(json.dumps(data, indent=4))
-
         results = do_msearch(data, 'bdrc_prod')
         return results if not test_json else data
+
+    # etext only
+    elif is_etext_only(original_jsons):
+        big_query = etext_json(query_str, query_str_bo)
 
     # normal search
     else:
         big_query = big_json(query_str, query_str_bo)
-        data = replace_bdrc_query(original_jsons, big_query)
+    
+    data = replace_bdrc_query(original_jsons, big_query)
 
     results = do_msearch(data, 'bdrc_prod')
-    print(json.dumps(data, indent=4))
+    #print(json.dumps(data, indent=4))
 
     if 'error' in results:
         print('Error in query:', json.dumps(data, indent=4))
         print('----')
         print('Opensearch error:', results)
     
-    #print(222, data)
+    print_jsons(data)
     return results if not test_json else data
 
 if __name__ == '__main__':

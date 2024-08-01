@@ -150,7 +150,6 @@ def etext_json(query_str, query_str_bo):
                         },
                         "inner_hits": {
                             "size": INNER_HITS_SIZE,
-                            "track_total_hits": True,
                             "_source": {
                                 "includes": ["id"]
                             },

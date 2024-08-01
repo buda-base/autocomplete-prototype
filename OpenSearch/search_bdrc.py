@@ -376,9 +376,9 @@ def get_query_str(data):
 def is_etext_only(original_jsons):
     for one_json in original_jsons:
         try:
-            if one_json['aggs']['etext_search']['terms']['field'] == 'etext_search':
+            if one_json['query']['bool']['filter'][0]['bool']['should']['term']['etext_search'] == "true":
                 return True
-        except: pass
+        except: print('pass')
     return False
 
 def print_jsons(print_me, query_str=None):

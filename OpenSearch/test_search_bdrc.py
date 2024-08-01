@@ -1,6 +1,8 @@
-from search_bdrc import normal_search
+#from search_bdrc import normal_search
 import json
 import jsondiff, os, re
+from uniseg.wordbreak import word_boundaries
+import re
 
 def test_one(test_base_path):
 	base = None
@@ -25,5 +27,13 @@ def main():
 	for filename in os.listdir('tests'):
 		if filename.endswith('-expected.json'):
 			continue
-		test_one(re.sub('\.json$', '', filename))
-main()
+		test_one(re.sub(r'\.json$', '', filename))
+
+def test_words():
+	s = "The quick (“brown”) fox"
+	s = "中国佛学院教授"
+	print(list(word_boundaries(s)))
+	print(re.findall(r'\w+', s))
+
+#main()
+test_words()

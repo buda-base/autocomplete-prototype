@@ -1,3 +1,4 @@
+from pyewts import pyewts
 from flask import Flask, request
 from flask_cors import CORS
 import re, json, requests
@@ -5,6 +6,8 @@ import os
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all domains on all routes
+
+converter = pyewts()
 
 def do_search(keyword, fuzzy):
     length = len(keyword)
@@ -62,8 +65,6 @@ def autosuggest():
     keyword = keyword.lower()
 
     if re.search(r'[\u0F00-\u0FFF]', keyword):
-        from pyewts import pyewts
-        converter = pyewts()
         keyword = converter.toWylie(keyword)
         keyword = re.sub(r'(\S)a$', r'\1', keyword)
         is_tibetan = 1

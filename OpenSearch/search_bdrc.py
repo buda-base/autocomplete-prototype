@@ -18,6 +18,32 @@ CORS(app)  # Enable CORS for all domains on all routes
 # we only return a certain number of hits per etext in the general search
 INNER_HITS_SIZE = 3
 
+def find_string_value(json_obj, key):
+    if isinstance(json_obj, dict):
+        for k, v in json_obj.items():
+            if k == key:
+                if isinstance(v, str):
+                    return v
+            result = find_string_value(v, key)
+            if result is not None:
+                return result
+    elif isinstance(json_obj, list):
+        for item in json_obj:
+            result = find_string_value(item, key)
+            if result is not None:
+                return result
+    return None
+
+def remove_etext_filter(data):
+    if isinstance(data, list):
+        return [item for item in (remove_etext_filter(item) for item in data) if item is not None]
+    elif isinstance(data, dict):
+        if data == {"term": {"etext_search": "true"}}:
+            return None
+        return {k: remove_etext_filter(v) for k, v in data.items() if remove_etext_filter(v) is not None}
+    else:
+        return data
+
 def get_fields(structure, langs=['bo_x_ewts', 'en']):
     # if more than two languages, the two-phrase match starts reducing phrase pairs to avoid too big queries, and search suffers
     all_fields = {"prefLabel_bo_x_ewts": 1, "altLabel_bo_x_ewts": 0.6, "comment_bo_x_ewts": 0.0001, "author": 0.1, "comment_en": 0.00005, "authorshipStatement_bo_x_ewts": 0.005, "summary_en": 0.1, "altLabel_cmg_x_poppe": 0.6, "prefLabel_en": 0.5, "altLabel_cmg_mong": 0.6, "prefLabel_km": 1, "publisherName_bo_x_ewts": 0.01, "comment": 0.0001, "publisherLocation_bo_x_ewts": 0.01, "prefLabel_zh_hani": 1, "authorshipStatement_en": 0.00025, "prefLabel_km_x_twktt": 1, "publisherLocation_en": 0.005, "altLabel_zh_latn_pinyin_x_ndia": 0.6, "publisherName_en": 0.005, "seriesName_res": 0.1, "altLabel_en": 0.3, "summary_bo_x_ewts": 0.2, "altLabel_km": 0.6, "seriesName_bo_x_ewts": 0.1, "issueName": 0.1, "altLabel_km_x_twktt": 0.6, "prefLabel_pi_khmr": 1, "altLabel_zh_hani": 0.6, "prefLabel_zh_latn_pinyin_x_ndia": 1, "translator": 0.1, "altLabel_sa_x_iast": 0.6, "prefLabel_sa_x_ndia": 1, "prefLabel_sa_alalc97": 1, "prefLabel_sa_x_iast": 1, "prefLabel_pi_x_twktt": 1, "seriesName_en": 0.05, "altLabel_pi_khmr": 0.6, "altLabel_pi_x_twktt": 0.6, "publisherName_zh_hani": 0.01, "altLabel_sa_x_ndia": 0.6, "prefLabel_zh_latn_wadegile": 1, "publisherLocation_zh_hani": 0.01, "altLabel_bo_alalc97": 0.6, "seriesName_zh_hani": 0.1, "prefLabel_mn_x_trans": 1, "altLabel_mn_x_trans": 0.6, "authorshipStatement_zh_hani": 0.005, "prefLabel": 1, "altLabel_zh_latn_pinyin": 0.6, "comment_zh_hani": 0.0001, "altLabel_sa_alalc97": 0.6, "prefLabel_mn_alalc97": 1, "prefLabel_sa_deva": 1, "altLabel_zh_latn_wadegile": 0.6, "publisherLocation_zh_latn_pinyin_x_ndia": 0.01, "authorshipStatement_zh_latn_pinyin_x_ndia": 0.005, "publisherName_zh_latn_pinyin_x_ndia": 0.01, "prefLabel_zh_latn_pinyin": 1, "comment_sa_x_iast": 0.0001, "altLabel_mn_alalc97": 0.6, "seriesName_zh_latn_pinyin_x_ndia": 0.1, "prefLabel_bo_alalc97": 1, "prefLabel_mn": 1, "prefLabel_pi_x_iast": 1, "prefLabel_sa_x_trans": 1, "prefLabel_fr": 1, "summary_zh_hani": 0.2, "altLabel_mn": 0.6, "altLabel_sa_deva": 0.6, "prefLabel_bo_latn_wadegile": 1, "publisherName_bo_latn_wadegile": 0.01, "altLabel_bo_latn_wadegile": 0.6, "comment_bo_latn_wadegile": 0.0001, "prefLabel_ja": 1, "altLabel_bo_latn_pinyin": 0.6, "publisherName_fr": 0.01, "authorshipStatement_zh": 0.005, "prefLabel_fr_alalc97": 1, "prefLabel_km_x_unspec": 1, "prefLabel_ru": 1, "prefLabel_sa_x_phon_en_m_tbrc": 0.5, "prefLabel_sa_x_rma": 1, "prefLabel_zh_alalc97": 1, "summary_sa_x_ndia": 0.2, "altLabel_bo_x_ndia": 0.6, "altLabel_de": 0.6, "altLabel_ja_alalc97": 0.6, "altLabel_ja_x_ndia": 0.6, "altLabel_km_x_unspec": 0.6, "altLabel_pi_x_iast": 0.6, "altLabel_sa_x_rma": 0.6, "altLabel_sa_x_trans": 0.6, "altLabel_zh_alalc97": 0.6, "altLabel_zh_x_ndia": 0.6, "authorshipStatement_sa_deva": 0.005, "authorshipStatement_zh_alalc97": 0.005, "comment_bo_alalc97": 0.0001, "comment_bo_x_ndia": 0.0001, "comment_sa_deva": 0.0001, "comment_sa_x_ndia": 0.0001, "comment_zh_latn_pinyin": 0.0001, "prefLabel_bo_x_acip": 1, "prefLabel_de": 1, "prefLabel_fr_x_iast": 1, "prefLabel_ja_alalc97": 1, "prefLabel_ja_x_ndia": 1, "prefLabel_ru_alalc97": 1, "publisherLocation_bo_latn_wadegile": 0.01, "publisherLocation_fr": 0.01, "publisherLocation_mn_alalc97": 0.01, "publisherLocation_sa_deva": 0.01, "publisherName_sa_deva": 0.01, "publisherName_sa_x_iast": 0.01}
@@ -230,7 +256,7 @@ def do_search(os_json, index):
     headers = {'Content-Type': 'application/json'}
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_search'
-    r = requests.post(url, headers=headers, auth=auth, json=os_json, timeout=5, verify=False)
+    r = requests.post(url, headers=headers, auth=auth, json=os_json, timeout=30, verify=False)
     if r.status_code != 200:
         print(r.status_code, r.text)
     return r.json()
@@ -240,7 +266,7 @@ def do_msearch(jsons, index):
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'
     ndjson = '\n'.join(json.dumps(x) for x in jsons) + '\n'
-    r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=5, verify=False)
+    r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=30, verify=False)
     if r.status_code != 200:
         print('Error from Opensearch:', r.status_code, r.text)
     return r.json()
@@ -349,11 +375,9 @@ def replace_bdrc_query(json_obj, replacement):
 
 def get_query_str(data):
     # get query string from searchkit json
-    query_str = None
-    try:
-        query_str = data["query"]["function_score"]["query"]["bool"]["must"][0]["multi_match"]["query"]
-    except KeyError:
-        return None
+    query_str = find_string_value(data, 'query')
+    if not query_str:
+        return query_str
 
     query_str_bo = query_str
 
@@ -375,14 +399,11 @@ def get_query_str(data):
 
 def is_etext_only(original_jsons):
     for one_json in original_jsons:
-        try:
-            if one_json['query']['bool']['filter'][0]['bool']['should']['term']['etext_search'] == "true":
-                return True
-        except: print('pass')
+        if find_string_value(one_json, 'etext_search') == 'true':
+            return True
     return False
 
-def print_jsons(print_me, query_str=None):
-    print()
+def print_jsons(print_me, place='', query_str=None):
     # export OPENSEARCH_PRINT="tests" to recreate tests
     if os.getenv('OPENSEARCH_PRINT') == 'tests':
         # save searchkit jsons in ./tests
@@ -397,6 +418,9 @@ def print_jsons(print_me, query_str=None):
 
     # export OPENSEARCH_PRINT="debug" to print to command line
     elif os.getenv('OPENSEARCH_PRINT') == 'debug':
+        print('\n',place)
+        if query_str:
+            print(query_str)
         if isinstance(print_me, list):
             for p in print_me:
                 print(json.dumps(p, indent=2))
@@ -463,13 +487,12 @@ def msearch(test_json=None):
     ndjson = request.data.decode('utf-8') if not test_json else test_json
     original_jsons = []
     for query in ndjson.split('\n')[:-1]:
-    #for query in ndjson.split('\n'):
         original_jsons.append(json.loads(query))
 
     query_str, query_str_bo, is_tibetan = get_query_str(original_jsons[1])
 
     # create tests or debug
-    print_jsons(original_jsons, query_str)
+    print_jsons(original_jsons, 'original jsons from searchkit', query_str)
 
     # id search
     if re.search(r'([^\s0-9]\d)', query_str):
@@ -480,22 +503,22 @@ def msearch(test_json=None):
     # etext only
     elif is_etext_only(original_jsons):
         big_query = etext_json(query_str, query_str_bo)
+        data = replace_bdrc_query(original_jsons, big_query)
+        data = remove_etext_filter(data)
 
     # normal search
     else:
         big_query = big_json(query_str, query_str_bo)
-    
-    data = replace_bdrc_query(original_jsons, big_query)
+        data = replace_bdrc_query(original_jsons, big_query)
 
+    print_jsons(data, 'json to opensearch')
     results = do_msearch(data, 'bdrc_prod')
-    #print(json.dumps(data, indent=4))
 
     if 'error' in results:
         print('Error in query:', json.dumps(data, indent=4))
         print('----')
         print('Opensearch error:', results)
     
-    print_jsons(data)
     return results if not test_json else data
 
 if __name__ == '__main__':

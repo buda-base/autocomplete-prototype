@@ -371,7 +371,7 @@ def replace_bdrc_query(json_obj, replacement):
         except KeyError:
             print('json_ob', json_obj)
             print('replacement', replacement)
-        return json_obj
+    return json_obj
 
 def get_query_str(data):
     # get query string from searchkit json

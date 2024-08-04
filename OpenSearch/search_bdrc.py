@@ -201,7 +201,7 @@ def etext_json(query_str, query_str_bo):
                     }
                 }
             ],
-            "boost": 10000
+            "boost": 1
         }
     }
     return json_obj
@@ -485,6 +485,7 @@ def autosuggest(test_json=None):
 @app.route('/msearch', methods=['POST', 'GET'])
 def msearch(test_json=None):
     ndjson = request.data.decode('utf-8') if not test_json else test_json
+    print('ndjson')
     original_jsons = []
     for query in ndjson.split('\n')[:-1]:
         original_jsons.append(json.loads(query))

@@ -206,30 +206,35 @@ def etext_json(query_str, query_str_bo):
     }
     return json_obj
 
+PREFIX_PAT = None
+SUFFIX_PAT = None
+
 def stopwords(query_str):
-    prefixes = [
-        "mkhan [pm]o ", "rgya gar kyi ", "mkhan chen ", "a lag ", "a khu ", "rgan ", "rgan lags ", 
-        "zhabs drung ", "mkhas grub ", "mkhas dbang ", "mkhas pa ", "bla ma ", "sman pa ", "em chi ", 
-        "yongs 'dzin ", "ma hA ", "sngags pa ", "sngags mo ", "sngags pa'i rgyal po ", "sems dpa' chen po ", 
-        "rnal 'byor [pm]a ", "rje ", "rje btsun ", "rje btsun [pm]a ", "kun mkhyen ", "lo tsA ba ", "lo tswa ba ", 
-        "lo cA ba ", "lo chen ", "slob dpon ", "paN\\+Di ta ", "paN chen ", "srI ", "dpal ", "dge slong ", 
-        "dge slong ma ", "dge bshes ", "dge ba'i bshes gnyen ", "shAkya'i dge slong ", "'phags pa ", "A rya ", 
-        "gu ru ", "sprul sku ", "a ni ", "a ni lags ", "rig 'dzin ", "chen [pm]o ", "A tsar\\+yA ", "gter ston ", 
-        "gter chen ", "thams cad mkhyen pa ", "rgyal dbang ", "rgyal ba ", "btsun [pm]a ", "dge rgan ", 
-        "theg pa chen po'i ", "hor ", "sog [pm]o ", "sog ", "a lags sha ", "khal kha ", "cha har ", "jung gar ", 
-        "o rad ", "hor chin ", "thu med ", "hor pa ", "na'i man ", "ne nam ", "su nyid ", "har chen ",
-        "bdrc[^a-zA-Z0-9]*", "bdr: *", "tbrc[^a-zA-Z0-9]*"
-    ]
-    suffixes = [
-        " dpal bzang po", " lags", " rin po che", " sprul sku", " le'u", " rgyud kyi rgyal po", 
-        " bzhugs so", " sku gzhogs", " (c|[sz])es bya ba"
-    ]
+    global PREFIX_PAT, SUFFIX_PAT
+    if PREFIX_PAT is None:
+        prefixes = [
+            "mkhan [pm]o ", "rgya gar kyi ", "mkhan chen ", "a lag ", "a khu ", "rgan ", "rgan lags ", 
+            "zhabs drung ", "mkhas grub ", "mkhas dbang ", "mkhas pa ", "bla ma ", "sman pa ", "em chi ", 
+            "yongs 'dzin ", "ma hA ", "sngags pa ", "sngags mo ", "sngags pa'i rgyal po ", "sems dpa' chen po ", 
+            "rnal 'byor [pm]a ", "rje ", "rje btsun ", "rje btsun [pm]a ", "kun mkhyen ", "lo tsA ba ", "lo tswa ba ", 
+            "lo cA ba ", "lo chen ", "slob dpon ", "paN\\+Di ta ", "paN chen ", "srI ", "dpal ", "dge slong ", 
+            "dge slong ma ", "dge bshes ", "dge ba'i bshes gnyen ", "shAkya'i dge slong ", "'phags pa ", "A rya ", 
+            "gu ru ", "sprul sku ", "a ni ", "a ni lags ", "rig 'dzin ", "chen [pm]o ", "A tsar\\+yA ", "gter ston ", 
+            "gter chen ", "thams cad mkhyen pa ", "rgyal dbang ", "rgyal ba ", "btsun [pm]a ", "dge rgan ", 
+            "theg pa chen po'i ", "hor ", "sog [pm]o ", "sog ", "a lags sha ", "khal kha ", "cha har ", "jung gar ", 
+            "o rad ", "hor chin ", "thu med ", "hor pa ", "na'i man ", "ne nam ", "su nyid ", "har chen ",
+            "bdrc[^a-zA-Z0-9]*", "bdr: *", "tbrc[^a-zA-Z0-9]*"
+        ]
+        suffixes = [
+            " dpal bzang po", " lags", " rin po che", " sprul sku", " le'u", " rgyud kyi rgyal po", 
+            " bzhugs so", " sku gzhogs", " (c|[sz])es bya ba"
+        ]
 
-    prefix_match = '^(' + '|'.join(prefixes) + ')'
-    suffix_match = '(' + '|'.join(suffixes) + ')$'
+        PREFIX_PAT = re.compile('^(' + '|'.join(prefixes) + ')', flags=re.I)
+        SUFFIX_PAT = re.compile('(' + '|'.join(suffixes) + ')$', flags=re.I)
 
-    query_str = re.sub(prefix_match, '', query_str, flags=re.I)
-    query_str = re.sub(suffix_match, '', query_str, flags=re.I)
+    query_str = re.sub(PREFIX_PAT, '', query_str)
+    query_str = re.sub(SUFFIX_PAT, '', query_str)
     return query_str
 
 def autosuggest_json(query_str, scope=['all']):
@@ -385,11 +390,10 @@ def get_query_str(data):
     query_str = query_str.strip()
     query_str, is_tibetan = tibetan(query_str)
 
-    if not is_tibetan:
-        query_str = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str)    
-        query_str = re.sub('[/_]+$', '', query_str)
-        query_str = stopwords(query_str)
-        query_str_bo = CONVERTER.toUnicode(query_str)
+    query_str = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str)    
+    query_str = re.sub('[/_]+$', '', query_str)
+    query_str = stopwords(query_str)
+    query_str_bo = CONVERTER.toUnicode(query_str)
 
     # TODO convert 9th to 09
     # convert 9 to 09

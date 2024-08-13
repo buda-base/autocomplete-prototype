@@ -171,6 +171,26 @@ def etext_json(query_str, query_str_bo):
                                             }
                                         ]
                                     }
+                                },
+                                "inner_hits": {
+                                    "highlight": {
+                                        "fields": {
+                                            "chunks.text_bo": {
+                                                "highlight_query": {
+                                                    "match_phrase": {
+                                                        "chunks.text_bo": query_str_bo
+                                                    }
+                                                }
+                                            },
+                                            "chunks.text_en": {
+                                                "highlight_query": {
+                                                    "match_phrase": {
+                                                        "chunks.text_en": query_str
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         },

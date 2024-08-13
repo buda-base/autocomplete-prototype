@@ -197,7 +197,7 @@ def etext_json(query_str, query_str_bo):
                         "inner_hits": {
                             "size": INNER_HITS_SIZE,
                             "_source": {
-                                "includes": ["id"]
+                                "includes": ["etext_instance", "etext_pagination_in", "etext_imagegroup", "etext_vol", "volumeNumber"]
                             },
                             "highlight": {
                                 "fields": {

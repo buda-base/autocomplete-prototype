@@ -59,6 +59,48 @@ def get_fields(structure, langs=['bo_x_ewts', 'en']):
     elif structure == 'as_dict':
         return dict(list(fields.items()))
 
+def and_json(query_str, query_str_bo):
+    phrases = re.split(' AND ', query_str)
+    phrases_bo = re.split('AND', query_str_bo)
+
+    fields = get_fields('with_weights')
+
+    must = []
+    # divide in phrases at AND
+    # the `min()` prevents out of range error, which should never happen
+    for n in range(0, min(len(phrases), len(phrases_bo))):
+        should = []
+
+        # match metadata
+        should.append({"multi_match": {"query": phrases[n], "fields": fields, "type": "phrase"}})
+
+        # match en in etext
+        has_child = {"has_child": {
+            "type": "etext",
+            "query": {"nested": {"path": "chunks", "query": {"match_phrase": {"chunks.text_en": phrases[n]}}}}, 
+            "inner_hits": {"size": INNER_HITS_SIZE,"_source": {"includes": ["id"]}, "highlight": {"fields": {"chunks.text_en": {}}}, "name": "phrase"+str(n+1)}, 
+            "boost": 1}}
+        should.append(has_child)
+
+        # match bo in etext
+        has_child = {"has_child": {
+            "type": "etext",
+            "query": {"nested": {"path": "chunks", "query": {"match_phrase": {"chunks.text_bo": phrases_bo[n]}}}}, 
+            "inner_hits": {"size": INNER_HITS_SIZE,"_source": {"includes": ["id"]}, "highlight": {"fields": {"chunks.text_bo": {}}}, "name": "phrase_bo"+str(n+1)}, 
+            "boost": 1}}
+        should.append(has_child)
+
+        # append shoulds to must, which produces the intended AND
+        must.append({"bool": {"should": should}})
+
+    json_obj = {
+        "bool": {
+            "must": must
+        }
+    }
+
+    return json_obj
+
 def big_json(query_str, query_str_bo):
     # all queries go to "queries" under "dis_max"
     big_query = {
@@ -299,7 +341,12 @@ def do_msearch(jsons, index):
 def convert_tibetan(query_str):
     # convert combinations of tibetan unicode and ascii to pure unicode and pure ascii
     wylie = re.sub(r'([\u0F00-\u0FFF]+)', lambda m: CONVERTER.toWylie(m.group(1)), query_str)
-    unicode = re.sub(r'([^\u0F00-\u0FFF]+)', lambda m: CONVERTER.toUnicode(m.group(1)), re.sub(' AND ', '[AND]', query_str))
+    unicode = re.sub(r'([^\u0F00-\u0FFF]+)', lambda m: CONVERTER.toUnicode(m.group(1)), re.sub('AND', 'ཧྵ', query_str))
+    unicode = re.sub('ཧྵ', 'AND', unicode)
+
+    print(query_str)
+    print(wylie)
+    print(unicode)
     return wylie, unicode
 
 def suggestion_highlight(user_input, suggestion):
@@ -549,6 +596,11 @@ def msearch(test_json=None):
         big_query = etext_json(query_str, query_str_bo)
         data = replace_bdrc_query(original_jsons, big_query)
         data = remove_etext_filter(data)
+
+    # AND search
+    elif re.search('[^A-Z]AND[^A-Z]', query_str):
+        big_query = and_json(query_str, query_str_bo)
+        data = replace_bdrc_query(original_jsons, big_query)
 
     # normal search
     else:

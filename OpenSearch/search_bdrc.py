@@ -296,12 +296,11 @@ def do_msearch(jsons, index):
         print('Error from Opensearch:', r.status_code, r.text)
     return r.json()
 
-def tibetan(query_str):
-    if re.search(r'[\u0F00-\u0FFF]', query_str):
-        query_str = CONVERTER.toWylie(query_str)
-        return query_str, True
-    else:
-        return query_str, False
+def convert_tibetan(query_str):
+    # convert combinations of tibetan unicode and ascii to pure unicode and pure ascii
+    wylie = re.sub(r'([\u0F00-\u0FFF]+)', lambda m: CONVERTER.toWylie(m.group(1)), query_str)
+    unicode = re.sub(r'([^\u0F00-\u0FFF]+)', lambda m: CONVERTER.toUnicode(m.group(1)), re.sub(' AND ', '[AND]', query_str))
+    return wylie, unicode
 
 def suggestion_highlight(user_input, suggestion):
     # user input matches suggestion
@@ -404,6 +403,27 @@ def get_query_str(data):
     if not query_str:
         return query_str
 
+    query_str = query_str.strip()
+
+    query_str_ascii, query_str_bo = convert_tibetan(query_str)
+
+    query_str_ascii = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str_ascii)    
+    query_str_ascii = re.sub('[/_]+$', '', query_str_ascii)
+    query_str_ascii = stopwords(query_str_ascii)
+    query_str_ascii = re.sub('^(t[oö]hoku|t[oö]h)[ .:]+(\d+)$', r'd\2', query_str_ascii, flags=re.IGNORECASE)
+
+    # TODO convert 9th to 09
+    # convert 9 to 09
+
+    #print(query_str_ascii, query_str_bo)
+    return query_str_ascii, query_str_bo
+
+def OLD_get_query_str(data):
+    # get query string from searchkit json
+    query_str = find_string_value(data, 'query')
+    if not query_str:
+        return query_str
+
     query_str_bo = query_str
 
     # clean up query string
@@ -463,9 +483,9 @@ def autosuggest(test_json=None):
         scope = ['all']
 
     query_str = data['query'].strip()
-    query_str, is_tibetan = tibetan(query_str)
-    if not is_tibetan:
-        query_str = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str)
+    is_tibetan = bool(re.search(r'[\u0F00-\u0FFF]', query_str))
+    query_str, query_str_bo = convert_tibetan(query_str)
+    query_str = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str)
 
     # id in autosuggest
     if re.search(r'([^\s0-9]\d)', query_str):
@@ -509,12 +529,11 @@ def autosuggest(test_json=None):
 @app.route('/msearch', methods=['POST', 'GET'])
 def msearch(test_json=None):
     ndjson = request.data.decode('utf-8') if not test_json else test_json
-    print('ndjson')
     original_jsons = []
     for query in ndjson.split('\n')[:-1]:
         original_jsons.append(json.loads(query))
 
-    query_str, query_str_bo, is_tibetan = get_query_str(original_jsons[1])
+    query_str, query_str_bo = get_query_str(original_jsons[1])
 
     # create tests or debug
     print_jsons(original_jsons, 'original jsons from searchkit', query_str)

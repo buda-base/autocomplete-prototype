@@ -343,10 +343,6 @@ def convert_tibetan(query_str):
     wylie = re.sub(r'([\u0F00-\u0FFF]+)', lambda m: CONVERTER.toWylie(m.group(1)), query_str)
     unicode = re.sub(r'([^\u0F00-\u0FFF]+)', lambda m: CONVERTER.toUnicode(m.group(1)), re.sub('AND', 'ཧྵ', query_str))
     unicode = re.sub('ཧྵ', 'AND', unicode)
-
-    print(query_str)
-    print(wylie)
-    print(unicode)
     return wylie, unicode
 
 def suggestion_highlight(user_input, suggestion):

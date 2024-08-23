@@ -441,10 +441,14 @@ def replace_bdrc_query(json_obj, replacement):
     return json_obj
 
 def get_query_str(data):
+    # prepare in-etext query string
+    if isinstance(data, str):
+        query_str = data
     # get query string from searchkit json
-    query_str = find_string_value(data, 'query')
-    if not query_str:
-        return query_str
+    else:
+        query_str = find_string_value(data, 'query')
+        if not query_str:
+            return query_str
 
     query_str = query_str.strip()
 
@@ -460,29 +464,6 @@ def get_query_str(data):
 
     #print(query_str_ascii, query_str_bo)
     return query_str_ascii, query_str_bo
-
-def OLD_get_query_str(data):
-    # get query string from searchkit json
-    query_str = find_string_value(data, 'query')
-    if not query_str:
-        return query_str
-
-    query_str_bo = query_str
-
-    # clean up query string
-    query_str = query_str.strip()
-    query_str, is_tibetan = tibetan(query_str)
-
-    query_str = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str)    
-    query_str = re.sub('[/_]+$', '', query_str)
-    query_str = stopwords(query_str)
-    query_str_bo = CONVERTER.toUnicode(query_str)
-
-    # TODO convert 9th to 09
-    # convert 9 to 09
-    # separate number to it's own token
-
-    return query_str, query_str_bo, is_tibetan
 
 def is_etext_only(original_jsons):
     for one_json in original_jsons:
@@ -567,6 +548,110 @@ def autosuggest(test_json=None):
 
     #print('autosuggest 2', json.dumps(os_json))
     return results if not test_json else os_json
+
+def in_etext_search(data):
+    # search in the right language
+    query_string_ascii, query_string_bo = get_query_str(data['query'])
+    if data['lang'] == 'en':
+        keyword_field_and_string = {"chunks.text_en": query_string_ascii}
+    elif data['lang'] == 'bo' or data['lang'] == 'bo_x_ewts':
+        keyword_field_and_string = {"chunks.text_bo": query_string_bo}
+
+    # select the doc(s)
+    if data.get('etext_instance'):
+        doc_selector = {"term": {"etext_instance": data['etext_instance']}}
+    elif data.get('etext_vol'):
+        doc_selector = {"term": {"etext_vol": data['etext_vol']}}
+    elif data.get('id'):
+        doc_selector = {"term": {"_id": data['id']}}
+    elif data.get('_id'):
+        doc_selector = {"term": {"_id": data['_id']}}
+
+    # build the json
+    os_json = {
+        "size": 10000,
+        "_source": ["volumeNumber", "etextNumber"],
+        "sort": [
+            {
+                "volumeNumber": {
+                    "order": "asc"
+                }
+            },
+            {
+                "etextNumber": {
+                    "order": "asc"
+                }
+            }
+        ],
+        "query": {
+            "constant_score": {
+                "filter": {
+                    "bool": {
+                        "must": [
+                            doc_selector,
+                            {
+                                "nested": {
+                                    "path": "chunks",
+                                    "query": {
+                                        "bool": {
+                                            "must": [
+                                                {
+                                                    "match_phrase": keyword_field_and_string
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "inner_hits": {
+                                        "_source": {
+                                            "includes": ["chunks.cstart", "chunks.cend"]
+                                        },
+                                        "size": 100,
+                                        "highlight": {
+                                            "fields": {
+                                                "chunks.text_bo": {
+                                                    "number_of_fragments": 0,
+                                                    "fragment_size": 1000000                     
+                                                }
+                                            }
+                                        },
+                                        "sort": [
+                                            {
+                                                "chunks.cstart": {
+                                                    "order": "asc"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    r = do_search(os_json, 'bdrc_prod')
+    if 'error' in r:
+        print('Error in query:', json.dumps(os_json, indent=4))
+        print('----')
+        print('Opensearch error:', r)
+    
+    # Display in Wylie
+    if data['lang'] == 'bo_x_ewts':
+        for doc in r['hits']['hits']:
+            for hit in doc['inner_hits']['chunks']['hits']['hits']:
+                for n in range(0, len(hit['highlight']['chunks.text_bo'])):
+                    hit['highlight']['chunks.text_bo'][n] = re.sub(r'\[<', '<', re.sub(r'>\]', '>', CONVERTER.toWylie(hit['highlight']['chunks.text_bo'][n])))
+    
+    return r
+
+# search within etext
+@app.route('/in_etext', methods=['POST', 'GET'])
+def in_etext(test_json=None):
+    data = request.json if not test_json else test_json
+    result = in_etext_search(data)
+    return result
 
 # normal msearch
 @app.route('/msearch', methods=['POST', 'GET'])

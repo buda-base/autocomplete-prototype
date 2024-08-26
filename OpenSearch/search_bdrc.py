@@ -501,7 +501,7 @@ def autosuggest(test_json=None):
     data = request.json if not test_json else test_json
     #print('autosuggest 1', json.dumps(data))
 
-    # handle scope as None, [] or [""]
+    # handle scope if it is None, [] or [""]
     scope = data.get('scope', ['all'])
     if not scope[0]:
         scope = ['all']
@@ -553,9 +553,11 @@ def in_etext_search(data):
     # search in the right language
     query_string_ascii, query_string_bo = get_query_str(data['query'])
     if data['lang'] == 'en':
-        keyword_field_and_string = {"chunks.text_en": query_string_ascii}
+        query_field = "chunks.text_en"
+        query_str = query_string_ascii
     elif data['lang'] == 'bo' or data['lang'] == 'bo_x_ewts':
-        keyword_field_and_string = {"chunks.text_bo": query_string_bo}
+        query_field = "chunks.text_bo"
+        query_str = query_string_bo
 
     # select the doc(s)
     if data.get('etext_instance'):
@@ -570,7 +572,7 @@ def in_etext_search(data):
     # build the json
     os_json = {
         "size": 10000,
-        "_source": ["volumeNumber", "etextNumber"],
+        "_source": ["volumeNumber", "etextNumber", "etext_vol"],
         "sort": [
             {
                 "volumeNumber": {
@@ -596,7 +598,7 @@ def in_etext_search(data):
                                         "bool": {
                                             "must": [
                                                 {
-                                                    "match_phrase": keyword_field_and_string
+                                                    "match_phrase": {query_field: query_str}
                                                 }
                                             ]
                                         }
@@ -608,9 +610,10 @@ def in_etext_search(data):
                                         "size": 100,
                                         "highlight": {
                                             "fields": {
-                                                "chunks.text_bo": {
+                                                query_field: {
                                                     "number_of_fragments": 0,
-                                                    "fragment_size": 1000000                     
+                                                    "fragment_size": 0,
+                                                    "type": "plain"                 
                                                 }
                                             }
                                         },
@@ -631,20 +634,81 @@ def in_etext_search(data):
         }
     }
 
+    #print(json.dumps(os_json, indent=2))
     r = do_search(os_json, 'bdrc_prod')
     if 'error' in r:
         print('Error in query:', json.dumps(os_json, indent=4))
         print('----')
         print('Opensearch error:', r)
-    
-    # Display in Wylie
-    if data['lang'] == 'bo_x_ewts':
-        for doc in r['hits']['hits']:
-            for hit in doc['inner_hits']['chunks']['hits']['hits']:
-                for n in range(0, len(hit['highlight']['chunks.text_bo'])):
-                    hit['highlight']['chunks.text_bo'][n] = re.sub(r'\[<', '<', re.sub(r'>\]', '>', CONVERTER.toWylie(hit['highlight']['chunks.text_bo'][n])))
-    
-    return r
+
+    hits = []
+    for doc in r['hits']['hits']:
+        for hit in doc['inner_hits']['chunks']['hits']['hits']:
+            combined_snippets = 0
+            chunk = re.sub('<(/?)em>', r'<\1EM>', hit['highlight'][query_field][0])
+            #plain_chunk = re.sub('<(/?)em>', '', hit['highlight'][query_field][0])
+
+            # combine tokens of a highlight
+            chunk = re.sub('</EM>(.{0,5})<EM>', r'\1', chunk, flags=re.DOTALL)
+
+            # work around an Opensearch bug, which omits highlights at the beginning of a field
+            chunk = re.sub('^'+query_str, '<EM>'+query_str+'</EM>', chunk)
+
+            positions = [len(x) for x in re.split('</?EM>', chunk)]
+            for n in range(1, len(positions) - 1, 2):
+
+                highlight_start = sum(positions[:n])
+                highlight_end = sum(positions[:n+1])
+
+                if not combined_snippets:
+                    # create snippet
+                    obj = re.search('(.{0,50}<EM>.+?</EM>.{0,50})', chunk, flags=re.DOTALL)
+                    if obj:
+                        snippet = obj.group(1)
+                        # main snippet back to lower case
+                        snippet = re.sub('EM>', 'em>', snippet, count=2)
+
+                        # check for multiple matches in one snippet
+                        # full tags
+                        snippet, combined_snippets = re.subn('<EM>(.*?)</EM>', r'<em>\1</em>', snippet)
+                        # incomplete or broken tags at the end
+                        snippet = re.sub('<E.*$', '', snippet)
+                        # incomplete or broken tags in the beginning `em>text </em>`
+                        snippet = re.sub('^[^<]*</em>', '', snippet)
+                        #`/em>` in the beginning
+                        snippet = re.sub('^[^<]*m>', '', snippet)
+                        # `>` in the beginning
+                        snippet = re.sub('^>', '', snippet)
+
+                        # mark this snippet done
+                        chunk = re.sub('<EM>', '<em>', chunk, count = combined_snippets + 1)
+                        chunk = re.sub('</EM>', '</em>', chunk, count = combined_snippets + 1)
+
+                        # tidy up both ends of the snippet
+                        if data['lang'] == 'bo':
+                            snippet = re.sub('^.{0,5}[་།༔༑༄༅༴༶༸༺༻༼༽༾༿༊་༈༉༒ ་]', '', snippet)
+                            snippet = re.sub('([་།༔༑༄༅༴༶༸༺༻༼༽༾༿༊་༈༉༒ ་]).{0,5}$', r'\1', snippet)
+                        else:
+                            snippet = re.sub('^.{0,5}\s', '', snippet)
+                            snippet = re.sub('\s.{0,5}$', '', snippet)
+                        snippet = '…' + snippet + '…'
+                # full match was included in the previous snippet
+                else:
+                    combined_snippets -= 1
+                    snippet = None
+
+                hits.append({
+                    'etextId': doc['_id'],
+                    'etextNumber': doc['_source']['etextNumber'],
+                    'volumeId': doc['_source'].get('etext_vol'),
+                    'volumeNumber': doc['_source']['volumeNumber'],
+                    'cstart': hit['_source']['cstart'],
+                    'highlightStart': highlight_start,
+                    'highlightEnd': highlight_end,
+                    'snippet': snippet
+                })
+                
+    return hits
 
 # search within etext
 @app.route('/in_etext', methods=['POST', 'GET'])

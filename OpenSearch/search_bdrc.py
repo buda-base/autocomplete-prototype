@@ -662,8 +662,6 @@ def in_etext_search(data):
                 # hit.cstart is the absolute chunk start                
                 abs_match_start = hit['_source']['cstart'] + sum(positions[:n])
                 abs_match_end = hit['_source']['cstart'] + sum(positions[:n+1])
-
-                # find pages of match start and end
                 start_page_obj = next((page for page in doc['_source']['etext_pages'] if page['cstart'] <= abs_match_start <= page['cend']), None)
                 end_page_obj = next((page for page in doc['_source']['etext_pages'] if page['cstart'] <= abs_match_end <= page['cend']), None)
 
@@ -714,6 +712,7 @@ def in_etext_search(data):
                     'volumeId': doc['_source'].get('etext_vol'),
                     'volumeNumber': doc['_source']['volumeNumber'],
                     'startPnum': start_page_obj['pnum'],
+                    'startPageCstart':  start_page_obj['cstart'],
                     'endPnum': end_page_obj['pnum'],
                     'highlightStart': abs_match_start - start_page_obj['cstart'],
                     'highlightEnd': abs_match_end - end_page_obj['cstart'],

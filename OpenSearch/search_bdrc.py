@@ -715,8 +715,8 @@ def in_etext_search(data):
                     'startPnum': start_page_obj['pnum'],
                     'startPageCstart':  start_page_obj['cstart'],
                     'endPnum': end_page_obj['pnum'],
-                    'highlightStart': abs_match_start - start_page_obj['cstart'],
-                    'highlightEnd': abs_match_end - end_page_obj['cstart'],
+                    'highlightStart': abs_match_start,
+                    'highlightEnd': abs_match_end,
                     'snippet': snippet
                 })
                 

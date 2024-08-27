@@ -167,7 +167,8 @@ def big_json(query_str, query_str_bo):
     number_of_tokens = len(query_words)
     if number_of_tokens > 2:
         for cut in range(1, number_of_tokens):
-            if len(big_query['dis_max']['queries']) < 11:
+            # limit query length to avoid OS error
+            if len(big_query['dis_max']['queries']) * number_of_tokens < 180:
                 phrase1 = ' '.join(query_words[:cut])
                 phrase2 = ' '.join(query_words[cut:])
                 if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:

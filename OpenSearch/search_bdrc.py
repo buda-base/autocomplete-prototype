@@ -572,7 +572,7 @@ def in_etext_search(data):
     # build the json
     os_json = {
         "size": 10000,
-        "_source": ["volumeNumber", "etextNumber", "etext_vol"],
+        "_source": ["volumeNumber", "etextNumber", "etext_vol", "etext_pages"],
         "sort": [
             {
                 "volumeNumber": {
@@ -646,7 +646,6 @@ def in_etext_search(data):
         for hit in doc['inner_hits']['chunks']['hits']['hits']:
             combined_snippets = 0
             chunk = re.sub('<(/?)em>', r'<\1EM>', hit['highlight'][query_field][0])
-            #plain_chunk = re.sub('<(/?)em>', '', hit['highlight'][query_field][0])
 
             # combine tokens of a highlight
             chunk = re.sub('</EM>(.{0,5})<EM>', r'\1', chunk, flags=re.DOTALL)
@@ -654,14 +653,23 @@ def in_etext_search(data):
             # work around an Opensearch bug, which omits highlights at the beginning of a field
             chunk = re.sub('^'+query_str, '<EM>'+query_str+'</EM>', chunk)
 
+            # loop through <em> tags in a chunk
             positions = [len(x) for x in re.split('</?EM>', chunk)]
             for n in range(1, len(positions) - 1, 2):
 
-                highlight_start = sum(positions[:n])
-                highlight_end = sum(positions[:n+1])
+                # Find the page(s) for the match
+                # page.cstart is the absolute page start
+                # hit.cstart is the absolute chunk start                
+                abs_match_start = hit['_source']['cstart'] + sum(positions[:n])
+                abs_match_end = hit['_source']['cstart'] + sum(positions[:n+1])
 
+                # find pages of match start and end
+                start_page_obj = next((page for page in doc['_source']['etext_pages'] if page['cstart'] <= abs_match_start <= page['cend']), None)
+                end_page_obj = next((page for page in doc['_source']['etext_pages'] if page['cstart'] <= abs_match_end <= page['cend']), None)
+
+                # normal case
                 if not combined_snippets:
-                    # create snippet
+                    # create a snippet
                     obj = re.search('(.{0,50}<EM>.+?</EM>.{0,50})', chunk, flags=re.DOTALL)
                     if obj:
                         snippet = obj.group(1)
@@ -692,7 +700,10 @@ def in_etext_search(data):
                             snippet = re.sub('^.{0,5}\s', '', snippet)
                             snippet = re.sub('\s.{0,5}$', '', snippet)
                         snippet = '…' + snippet + '…'
-                # full match was included in the previous snippet
+                    else:
+                        snippet = None
+
+                # previous snippet contained more than one matches, including this one
                 else:
                     combined_snippets -= 1
                     snippet = None
@@ -702,9 +713,10 @@ def in_etext_search(data):
                     'etextNumber': doc['_source']['etextNumber'],
                     'volumeId': doc['_source'].get('etext_vol'),
                     'volumeNumber': doc['_source']['volumeNumber'],
-                    'cstart': hit['_source']['cstart'],
-                    'highlightStart': highlight_start,
-                    'highlightEnd': highlight_end,
+                    'startPnum': start_page_obj['pnum'],
+                    'endPnum': end_page_obj['pnum'],
+                    'highlightStart': abs_match_start - start_page_obj['cstart'],
+                    'highlightEnd': abs_match_end - end_page_obj['cstart'],
                     'snippet': snippet
                 })
                 

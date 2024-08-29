@@ -55,7 +55,7 @@ def get_fields(structure, langs=['bo_x_ewts', 'en']):
     elif structure == 'for_autosuggest_highlight':
         return {key: {} for key in list(fields.keys())}
     elif structure == 'as_list':
-        return fields.keys()
+        return list(fields.keys())
     elif structure == 'as_dict':
         return dict(list(fields.items()))
 
@@ -90,7 +90,7 @@ def and_json(query_str, query_str_bo):
             "boost": 1}}
         should.append(has_child)
 
-        # append shoulds to must, which produces the intended AND
+        # append shoulds to must, which produces the AND
         must.append({"bool": {"should": should}})
 
     json_obj = {
@@ -102,6 +102,7 @@ def and_json(query_str, query_str_bo):
     return json_obj
 
 def big_json(query_str, query_str_bo):
+    highlight_strings = []
     # all queries go to "queries" under "dis_max"
     big_query = {
         "dis_max": {
@@ -141,6 +142,7 @@ def big_json(query_str, query_str_bo):
                 }
             }
             big_query['dis_max']['queries'].append(should)
+            highlight_strings.append(match)
 
     # 2. full query perfect match
     should = {
@@ -159,7 +161,7 @@ def big_json(query_str, query_str_bo):
     }
     big_query['dis_max']['queries'].append(should)
 
-    # 3. etext match
+    # 3. etext full match
     big_query['dis_max']['queries'].append(etext_json(query_str, query_str_bo))
 
     # 4. create all two-phrase combinations of the keywords
@@ -169,8 +171,8 @@ def big_json(query_str, query_str_bo):
         for cut in range(1, number_of_tokens):
             # limit query length to avoid OS error
             if len(big_query['dis_max']['queries']) * number_of_tokens < 180:
-                phrase1 = ' '.join(query_words[:cut])
-                phrase2 = ' '.join(query_words[cut:])
+                phrase1 = ' '.join(query_words[:cut]) # mi
+                phrase2 = ' '.join(query_words[cut:]) # la ras pa
                 if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
                     continue
                 # add a phrase pair in "must" which will go inside "should"
@@ -183,11 +185,22 @@ def big_json(query_str, query_str_bo):
                             "fields": get_fields('with_weights', ['bo_x_ewts'])
                         }
                     })
-                # append the pair to "should"
-                    big_query['dis_max']['queries'].append({'bool': {'must': must}})
+                    # append the pair to "should"
+                    highlight_strings.append(phrase)
 
-    #print(json.dumps(big_query, indent=2))
-    return(big_query)
+                big_query['dis_max']['queries'].append({'bool': {'must': must}})
+    # normally the two-phrase match highlights the full query string too, but if not, add it here.
+    else:
+        highlight_strings.append(query_str)
+
+    # create highlight_query
+    should = []
+    fields = get_fields('as_list')
+    for string in highlight_strings:
+        should.append({"multi_match": {"type": "phrase", "query": string, "fields": fields}})
+    highlight_query = {"highlight_query": {"bool": {"should": should}}, "fields": {"*": {}}}
+
+    return(big_query, highlight_query)
 
 def etext_json(query_str, query_str_bo):
     json_obj = {
@@ -234,7 +247,7 @@ def etext_json(query_str, query_str_bo):
                                             }
                                         }
                                     }
-                                }
+                                  }
                             }
                         },
                         "inner_hits": {
@@ -433,13 +446,19 @@ def id_json_search(query_str, original_jsons):
 
     return [original_jsons[0], os_json]
 
-def replace_bdrc_query(json_obj, replacement):
-    for n in range(1, len(json_obj), 2):
-        try: json_obj[n]["query"]["function_score"]["query"]["bool"]["must"] = [replacement]
+def replace_bdrc_query(original_jsons, replacement, highlight_query=None):
+    for n in range(1, len(original_jsons), 2):
+        # replace the main query
+        try: original_jsons[n]["query"]["function_score"]["query"]["bool"]["must"] = [replacement]
         except KeyError:
-            print('json_ob', json_obj)
+            print('original_jsons', original_jsons[n])
             print('replacement', replacement)
-    return json_obj
+
+        # replace highlight
+        if highlight_query:
+            try: original_jsons[n]["highlight"] = highlight_query
+            except: print(original_jsons[n])
+    return original_jsons
 
 def get_query_str(data):
     # prepare in-etext query string
@@ -472,18 +491,18 @@ def is_etext_only(original_jsons):
             return True
     return False
 
-def print_jsons(print_me, place='', query_str=None):
+def print_jsons(print_me, place, query_str):
     # export OPENSEARCH_PRINT="tests" to recreate tests
     if os.getenv('OPENSEARCH_PRINT') == 'tests':
         # save searchkit jsons in ./tests
-        if isinstance(print_me, list):
+        if place == 'searchkit':
             with open('tests/' + query_str + '.json', 'w') as f:
                 for p in print_me:
-                    f.write(json.dumps(p, indent=2))
+                    f.write(json.dumps(p, indent=2, ensure_ascii=False))
         # save OS query in ./tests
         else:
             with open('tests/' + query_str + '-expected.json', 'w') as f:
-                f.write(json.dumps(print_me, indent=2))
+                f.write(json.dumps(print_me, indent=2, ensure_ascii=False))
 
     # export OPENSEARCH_PRINT="debug" to print to command line
     elif os.getenv('OPENSEARCH_PRINT') == 'debug':
@@ -492,9 +511,9 @@ def print_jsons(print_me, place='', query_str=None):
             print(query_str)
         if isinstance(print_me, list):
             for p in print_me:
-                print(json.dumps(p, indent=2))
+                print(json.dumps(p, indent=2, ensure_ascii=False))
         else:
-            print(json.dumps(print_me, indent=2))
+            print(json.dumps(print_me, indent=2, ensure_ascii=False))
 
 
 @app.route('/autosuggest', methods=['POST', 'GET'])
@@ -736,11 +755,10 @@ def msearch(test_json=None):
     original_jsons = []
     for query in ndjson.split('\n')[:-1]:
         original_jsons.append(json.loads(query))
-
     query_str, query_str_bo = get_query_str(original_jsons[1])
 
     # create tests or debug
-    print_jsons(original_jsons, 'original jsons from searchkit', query_str)
+    print_jsons(original_jsons, 'searchkit', query_str)
 
     # id search
     if re.search(r'([^\s0-9]\d)', query_str):
@@ -761,10 +779,10 @@ def msearch(test_json=None):
 
     # normal search
     else:
-        big_query = big_json(query_str, query_str_bo)
-        data = replace_bdrc_query(original_jsons, big_query)
+        big_query, highlight_query = big_json(query_str, query_str_bo)
+        data = replace_bdrc_query(original_jsons, big_query, highlight_query=highlight_query)
 
-    print_jsons(data, 'json to opensearch')
+    print_jsons(data, 'opensearch', query_str)
     results = do_msearch(data, 'bdrc_prod')
 
     if 'error' in results:

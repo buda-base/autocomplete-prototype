@@ -75,7 +75,7 @@ def and_json(query_str, query_str_bo):
         should.append({"multi_match": {"query": phrases[n], "fields": fields, "type": "phrase"}})
 
         # match etext
-        should.append(etext_json(phrases[n], phrases_bo[n], names=True, source=False))
+        should.append(etext_json(phrases[n], phrases_bo[n], names=True, source=True))
 
         # append shoulds to must, which produces the AND
         must.append({"bool": {"should": should}})
@@ -175,7 +175,7 @@ def big_json(query_str, query_str_bo):
                                         "fields": get_fields('with_weights', ['bo_x_ewts'])
                                     }
                                 },
-                                etext_json(phrase, CONVERTER.toUnicode(phrase), names=True, source=False)
+                                etext_json(phrase, CONVERTER.toUnicode(phrase), names=True, source=True)
                             ]
                         }
                     })
@@ -196,7 +196,6 @@ def highlight_json(highlight_strings):
     return highlight_query
 
 def etext_json(query_str, query_str_bo, names=False, source=True):
-
     if source:
         child_source = {"includes": ["etext_instance", "etext_pagination_in", "etext_imagegroup", "etext_vol", "volumeNumber"]}
     else:

@@ -74,21 +74,8 @@ def and_json(query_str, query_str_bo):
         # match metadata
         should.append({"multi_match": {"query": phrases[n], "fields": fields, "type": "phrase"}})
 
-        # match en in etext
-        has_child = {"has_child": {
-            "type": "etext",
-            "query": {"nested": {"path": "chunks", "query": {"match_phrase": {"chunks.text_en": phrases[n]}}}}, 
-            "inner_hits": {"size": INNER_HITS_SIZE,"_source": {"includes": ["id"]}, "highlight": {"fields": {"chunks.text_en": {}}}, "name": "phrase"+str(n+1)}, 
-            "boost": 1}}
-        should.append(has_child)
-
-        # match bo in etext
-        has_child = {"has_child": {
-            "type": "etext",
-            "query": {"nested": {"path": "chunks", "query": {"match_phrase": {"chunks.text_bo": phrases_bo[n]}}}}, 
-            "inner_hits": {"size": INNER_HITS_SIZE,"_source": {"includes": ["id"]}, "highlight": {"fields": {"chunks.text_bo": {}}}, "name": "phrase_bo"+str(n+1)}, 
-            "boost": 1}}
-        should.append(has_child)
+        # match etext
+        should.append(etext_json(phrases[n], phrases_bo[n], names=True, source=False))
 
         # append shoulds to must, which produces the AND
         must.append({"bool": {"should": should}})
@@ -99,10 +86,10 @@ def and_json(query_str, query_str_bo):
         }
     }
 
-    return json_obj
+    return json_obj, highlight_json(phrases)
 
 def big_json(query_str, query_str_bo):
-    highlight_strings = []
+    highlight_strings = [query_str]
     # all queries go to "queries" under "dis_max"
     big_query = {
         "dis_max": {
@@ -170,48 +157,62 @@ def big_json(query_str, query_str_bo):
     if number_of_tokens > 2:
         for cut in range(1, number_of_tokens):
             # limit query length to avoid OS error
-            if len(big_query['dis_max']['queries']) * number_of_tokens < 180:
+            if len(big_query['dis_max']['queries']) * number_of_tokens < 130:
                 phrase1 = ' '.join(query_words[:cut]) # mi
                 phrase2 = ' '.join(query_words[cut:]) # la ras pa
                 if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
                     continue
-                # add a phrase pair in "must" which will go inside "should"
+                # add a phrase pair in must which will go inside should
                 must = []
                 for phrase in [phrase1, phrase2]:
                     must.append ({
-                        "multi_match": {
-                            "type": "phrase",
-                            "query": phrase,
-                            "fields": get_fields('with_weights', ['bo_x_ewts'])
+                        "bool": {
+                            "should": [
+                                {
+                                    "multi_match": {
+                                        "type": "phrase",
+                                        "query": phrase,
+                                        "fields": get_fields('with_weights', ['bo_x_ewts'])
+                                    }
+                                },
+                                etext_json(phrase, CONVERTER.toUnicode(phrase), names=True, source=False)
+                            ]
                         }
                     })
-                    # append the pair to "should"
+                    # append the pair to should
                     highlight_strings.append(phrase)
 
                 big_query['dis_max']['queries'].append({'bool': {'must': must}})
-    # normally the two-phrase match highlights the full query string too, but if not, add it here.
-    else:
-        highlight_strings.append(query_str)
 
-    # create highlight_query
+    highlight_query = highlight_json(highlight_strings)
+    return(big_query, highlight_query)
+
+def highlight_json(highlight_strings):
     should = []
     fields = get_fields('as_list')
     for string in highlight_strings:
         should.append({"multi_match": {"type": "phrase", "query": string, "fields": fields}})
     highlight_query = {"highlight_query": {"bool": {"should": should}}, "fields": {"*": {}}}
+    return highlight_query
 
-    return(big_query, highlight_query)
+def etext_json(query_str, query_str_bo, names=False, source=True):
 
-def etext_json(query_str, query_str_bo):
+    if source:
+        child_source = {"includes": ["etext_instance", "etext_pagination_in", "etext_imagegroup", "etext_vol", "volumeNumber"]}
+    else:
+        child_source = False
+
     json_obj = {
         "bool": {
             "must": [
                 {
                     "has_child": {
                         "type": "etext",
+                        "score_mode": "none",
                         "query": {
                             "nested": {
                                 "path": "chunks",
+                                "score_mode": "none",
                                 "query": {
                                     "bool": {
                                         "should": [
@@ -229,6 +230,7 @@ def etext_json(query_str, query_str_bo):
                                     }
                                 },
                                 "inner_hits": {
+                                    "_source": source,
                                     "highlight": {
                                         "fields": {
                                             "chunks.text_bo": {
@@ -252,9 +254,7 @@ def etext_json(query_str, query_str_bo):
                         },
                         "inner_hits": {
                             "size": INNER_HITS_SIZE,
-                            "_source": {
-                                "includes": ["etext_instance", "etext_pagination_in", "etext_imagegroup", "etext_vol", "volumeNumber"]
-                            },
+                            "_source": child_source,
                             "highlight": {
                                 "fields": {
                                     "chunks.text_bo": {
@@ -276,10 +276,16 @@ def etext_json(query_str, query_str_bo):
                         }
                     }
                 }
-            ],
-            "boost": 1
+            ]
         }
     }
+    if names:
+        json_obj['bool']['must'][0]['has_child']['inner_hits']['name'] = query_str
+    
+    if not source:
+        json_obj['bool']['must'][0]['has_child']['inner_hits']['_source'] = 'false'        
+
+
     return json_obj
 
 PREFIX_PAT = None
@@ -446,6 +452,36 @@ def id_json_search(query_str, original_jsons):
 
     return [original_jsons[0], os_json]
 
+# Try to get highlights from all tokens of the query string, so that etext and metadata hits would be different.
+# Example query: "bla mchos sa skya bka' 'bum"
+def etext_highlights(results):
+    if 'responses' in results:
+        for hit in results['responses'][0]['hits']['hits']:
+            metadata_tokens = set()
+            if 'highlight' in hit:
+                # 1. metadata tokens, in this case "sa skya bka' 'bum"
+                for field in hit['highlight']:
+                    for item in hit['highlight'][field]:
+                        metadata_tokens.update(re.findall('<em>(.*?)</em>', item))
+                # 2. find etext tokens that were not in metadata
+                candidates = {}
+                # Phrases are from two-phrase query, like "bla", "mchos sa skya bka' 'bum", "bla mchos", etc.
+                for phrase, inner_hits in hit.get('inner_hits', {}).items():
+                    if inner_hits['hits']['total']['value']:
+                        # Store the number of tokens unique to etext, like {"bla": 1, "sa skya bka' 'bum": 0,  "bla mchos": 2}
+                        etext_tokens = set(re.findall('\S+', phrase))
+                        candidates[phrase] = len(etext_tokens - metadata_tokens)
+                # Reorder the result json to have the etext-only matches first
+                sorted_candidates = dict(sorted(candidates.items(), key=lambda item: (item[1], len(item[0])), reverse=True))
+                temp_inner_hits = hit['inner_hits']
+                ordered_inner_hits = {key: temp_inner_hits[key] for key in sorted_candidates if key in temp_inner_hits}
+                hit['inner_hits'] = ordered_inner_hits
+    return results
+
+    
+
+
+
 def replace_bdrc_query(original_jsons, replacement, highlight_query=None):
     for n in range(1, len(original_jsons), 2):
         # replace the main query
@@ -496,12 +532,15 @@ def print_jsons(print_me, place, query_str):
     if os.getenv('OPENSEARCH_PRINT') == 'tests':
         # save searchkit jsons in ./tests
         if place == 'searchkit':
-            with open('tests/' + query_str + '.json', 'w') as f:
+            with open('tests/' + query_str + '-searchkit.json', 'w') as f:
                 for p in print_me:
                     f.write(json.dumps(p, indent=2, ensure_ascii=False))
         # save OS query in ./tests
-        else:
-            with open('tests/' + query_str + '-expected.json', 'w') as f:
+        elif place == 'opensearch':
+            with open('tests/' + query_str + '-opensearch.json', 'w') as f:
+                f.write(json.dumps(print_me, indent=2, ensure_ascii=False))
+        elif place == 'results':
+            with open('tests/' + query_str + '-results.json', 'w') as f:
                 f.write(json.dumps(print_me, indent=2, ensure_ascii=False))
 
     # export OPENSEARCH_PRINT="debug" to print to command line
@@ -513,6 +552,7 @@ def print_jsons(print_me, place, query_str):
             for p in print_me:
                 print(json.dumps(p, indent=2, ensure_ascii=False))
         else:
+            print('\n________' + query_str + '________' + place + '________')
             print(json.dumps(print_me, indent=2, ensure_ascii=False))
 
 
@@ -564,9 +604,7 @@ def autosuggest(test_json=None):
         else:
             suggestion = suggestion_highlight(query_str, hit['text'])
         results.append({'lang': hit['_source'].get('lang'), 'res': suggestion})
-    #print(results)
 
-    #print('autosuggest 2', json.dumps(os_json))
     return results if not test_json else os_json
 
 def in_etext_search(data):
@@ -774,8 +812,8 @@ def msearch(test_json=None):
 
     # AND search
     elif re.search('[^A-Z]AND[^A-Z]', query_str):
-        big_query = and_json(query_str, query_str_bo)
-        data = replace_bdrc_query(original_jsons, big_query)
+        big_query, highlight_query = and_json(query_str, query_str_bo)
+        data = replace_bdrc_query(original_jsons, big_query, highlight_query=highlight_query)
 
     # normal search
     else:
@@ -784,12 +822,14 @@ def msearch(test_json=None):
 
     print_jsons(data, 'opensearch', query_str)
     results = do_msearch(data, 'bdrc_prod')
+    etext_highlights(results)
 
     if 'error' in results:
         print('Error in query:', json.dumps(data, indent=4))
         print('----')
         print('Opensearch error:', results)
     
+    print_jsons(results, 'results', query_str)
     return results if not test_json else data
 
 if __name__ == '__main__':

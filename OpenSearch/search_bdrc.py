@@ -44,10 +44,11 @@ def remove_etext_filter(data):
     else:
         return data
 
-def get_fields(structure, langs=['bo_x_ewts', 'en']):
+def get_fields(structure, langs=['bo_x_ewts', 'en', 'hani', 'iast', 'mymr', 'khmr']):
     # if more than two languages, the two-phrase match starts reducing phrase pairs to avoid too big queries, and search suffers
-    all_fields = {"prefLabel_bo_x_ewts": 1, "altLabel_bo_x_ewts": 0.6, "comment_bo_x_ewts": 0.0001, "author": 0.1, "comment_en": 0.00005, "authorshipStatement_bo_x_ewts": 0.005, "summary_en": 0.1, "altLabel_cmg_x_poppe": 0.6, "prefLabel_en": 0.5, "altLabel_cmg_mong": 0.6, "prefLabel_km": 1, "publisherName_bo_x_ewts": 0.01, "comment": 0.0001, "publisherLocation_bo_x_ewts": 0.01, "prefLabel_zh_hani": 1, "authorshipStatement_en": 0.00025, "prefLabel_km_x_twktt": 1, "publisherLocation_en": 0.005, "altLabel_zh_latn_pinyin_x_ndia": 0.6, "publisherName_en": 0.005, "seriesName_res": 0.1, "altLabel_en": 0.3, "summary_bo_x_ewts": 0.2, "altLabel_km": 0.6, "seriesName_bo_x_ewts": 0.1, "issueName": 0.1, "altLabel_km_x_twktt": 0.6, "prefLabel_pi_khmr": 1, "altLabel_zh_hani": 0.6, "prefLabel_zh_latn_pinyin_x_ndia": 1, "translator": 0.1, "altLabel_sa_x_iast": 0.6, "prefLabel_sa_x_ndia": 1, "prefLabel_sa_alalc97": 1, "prefLabel_sa_x_iast": 1, "prefLabel_pi_x_twktt": 1, "seriesName_en": 0.05, "altLabel_pi_khmr": 0.6, "altLabel_pi_x_twktt": 0.6, "publisherName_zh_hani": 0.01, "altLabel_sa_x_ndia": 0.6, "prefLabel_zh_latn_wadegile": 1, "publisherLocation_zh_hani": 0.01, "altLabel_bo_alalc97": 0.6, "seriesName_zh_hani": 0.1, "prefLabel_mn_x_trans": 1, "altLabel_mn_x_trans": 0.6, "authorshipStatement_zh_hani": 0.005, "prefLabel": 1, "altLabel_zh_latn_pinyin": 0.6, "comment_zh_hani": 0.0001, "altLabel_sa_alalc97": 0.6, "prefLabel_mn_alalc97": 1, "prefLabel_sa_deva": 1, "altLabel_zh_latn_wadegile": 0.6, "publisherLocation_zh_latn_pinyin_x_ndia": 0.01, "authorshipStatement_zh_latn_pinyin_x_ndia": 0.005, "publisherName_zh_latn_pinyin_x_ndia": 0.01, "prefLabel_zh_latn_pinyin": 1, "comment_sa_x_iast": 0.0001, "altLabel_mn_alalc97": 0.6, "seriesName_zh_latn_pinyin_x_ndia": 0.1, "prefLabel_bo_alalc97": 1, "prefLabel_mn": 1, "prefLabel_pi_x_iast": 1, "prefLabel_sa_x_trans": 1, "prefLabel_fr": 1, "summary_zh_hani": 0.2, "altLabel_mn": 0.6, "altLabel_sa_deva": 0.6, "prefLabel_bo_latn_wadegile": 1, "publisherName_bo_latn_wadegile": 0.01, "altLabel_bo_latn_wadegile": 0.6, "comment_bo_latn_wadegile": 0.0001, "prefLabel_ja": 1, "altLabel_bo_latn_pinyin": 0.6, "publisherName_fr": 0.01, "authorshipStatement_zh": 0.005, "prefLabel_fr_alalc97": 1, "prefLabel_km_x_unspec": 1, "prefLabel_ru": 1, "prefLabel_sa_x_phon_en_m_tbrc": 0.5, "prefLabel_sa_x_rma": 1, "prefLabel_zh_alalc97": 1, "summary_sa_x_ndia": 0.2, "altLabel_bo_x_ndia": 0.6, "altLabel_de": 0.6, "altLabel_ja_alalc97": 0.6, "altLabel_ja_x_ndia": 0.6, "altLabel_km_x_unspec": 0.6, "altLabel_pi_x_iast": 0.6, "altLabel_sa_x_rma": 0.6, "altLabel_sa_x_trans": 0.6, "altLabel_zh_alalc97": 0.6, "altLabel_zh_x_ndia": 0.6, "authorshipStatement_sa_deva": 0.005, "authorshipStatement_zh_alalc97": 0.005, "comment_bo_alalc97": 0.0001, "comment_bo_x_ndia": 0.0001, "comment_sa_deva": 0.0001, "comment_sa_x_ndia": 0.0001, "comment_zh_latn_pinyin": 0.0001, "prefLabel_bo_x_acip": 1, "prefLabel_de": 1, "prefLabel_fr_x_iast": 1, "prefLabel_ja_alalc97": 1, "prefLabel_ja_x_ndia": 1, "prefLabel_ru_alalc97": 1, "publisherLocation_bo_latn_wadegile": 0.01, "publisherLocation_fr": 0.01, "publisherLocation_mn_alalc97": 0.01, "publisherLocation_sa_deva": 0.01, "publisherName_sa_deva": 0.01, "publisherName_sa_x_iast": 0.01}
+    all_fields = {"seriesName_bo_x_ewts": 0.05, "seriesName_en": 0.05, "summary_bo_x_ewts": 0.1, "summary_en": 0.1, "summary_hani": 0.1, "authorshipStatement_bo_x_ewts": 0.0002, "authorshipStatement_en": 0.0002, "publisherName_bo_x_ewts": 0.01, "publisherLocation_bo_x_ewts": 0.01, "publisherName_en": 0.01, "publisherLocation_en": 0.01, "publisherName_hani": 0.01, "publisherLocation_hani": 0.01, "prefLabel_hani": 1, "prefLabel_mymr": 1, "prefLabel_khmr": 1, "prefLabel_iast": 1, "prefLabel_bo_x_ewts": 1, "prefLabel_en": 1, "etext_authorshipStatement_bo_x_ewts": 0.0002, "etext_authorshipStatement_en": 0.0002, "etext_publisherName_bo_x_ewts": 0.01, "etext_publisherLocation_bo_x_ewts": 0.01, "etext_publisherName_en": 0.01, "etext_publisherLocation_en": 0.01, "etext_prefLabel_bo_x_ewts": 1, "etext_prefLabel_en": 1, "comment_bo_x_ewts": 0.00005, "comment_en": 0.00005, "comment_hani": 0.00005, "altLabel_hani": 0.6, "altLabel_iast": 0.6, "altLabel_mymr": 0.6, "altLabel_khmr": 0.6, "altLabel_bo_x_ewts": 0.6, "altLabel_en": 0.6}
 
+    # select the fields of selected languages
     fields = {k: v for k, v in all_fields.items() if any(k.endswith(lang) for lang in langs)}
 
     if structure == 'with_weights':
@@ -152,12 +153,25 @@ def big_json(query_str, query_str_bo):
     big_query['dis_max']['queries'].append(etext_json(query_str, query_str_bo))
 
     # 4. create all two-phrase combinations of the keywords
-    query_words = re.split("[^a-zA-Z0-9+']", query_str)
+    #query_words = re.split("[^a-zA-Z0-9+']", query_str)
+    query_words = query_str.split()
     number_of_tokens = len(query_words)
+
+
     if number_of_tokens > 2:
-        for cut in range(1, number_of_tokens):
+        # define cut points to start in the middle, in case we cannot include all cut points
+        cuts = []
+        for n in range(0, int(number_of_tokens/2 + 1)):
+            if not n:
+                cuts.append(int(number_of_tokens/2))
+            else:
+                for lr in [-1,1]:
+                    cut = int(number_of_tokens/2) + n * lr
+                    if cut > 0 and cut < number_of_tokens:		
+                        cuts.append(cut)
+        for cut in cuts:
             # limit query length to avoid OS error
-            if len(big_query['dis_max']['queries']) * number_of_tokens < 130:
+            if len(big_query['dis_max']['queries']) < 19 - number_of_tokens * 0.9:
                 phrase1 = ' '.join(query_words[:cut]) # mi
                 phrase2 = ' '.join(query_words[cut:]) # la ras pa
                 if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
@@ -185,6 +199,7 @@ def big_json(query_str, query_str_bo):
                 big_query['dis_max']['queries'].append({'bool': {'must': must}})
 
     highlight_query = highlight_json(highlight_strings)
+    #print(number_of_tokens, len(weight_fields), len(big_query['dis_max']['queries']), sep='\t')
     return(big_query, highlight_query)
 
 def highlight_json(highlight_strings):
@@ -821,13 +836,17 @@ def msearch(test_json=None):
 
     print_jsons(data, 'opensearch', query_str)
     results = do_msearch(data, 'bdrc_prod')
+
+    # handle errors
+    for r in results['responses']:
+        if 'error' in r:
+            #print('Error in query:', json.dumps(data, indent=4))
+            #print('----')
+            print('Opensearch error:', results)
+            return(results)
+
     etext_highlights(results)
 
-    if 'error' in results:
-        print('Error in query:', json.dumps(data, indent=4))
-        print('----')
-        print('Opensearch error:', results)
-    
     print_jsons(results, 'results', query_str)
     return results if not test_json else data
 

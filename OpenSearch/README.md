@@ -8,6 +8,13 @@
 The scripts expect the env variables OPENSEARCH_URL, OPENSEARCH_USER and OPENSEARCH_PASSWORD. 
 The URL is https://opensearch.bdrc.io
 
+### Debug
+If you `export OPENSEARCH_PRINT="tests"` and create `./tests/` under the script directory, it will log three JSON files at each query:
+
+- JSON from searchkit
+- JSON to Opensearch
+- Result JSON
+
 ### Run
 
 `python3 search_bdrc.py`

@@ -188,8 +188,8 @@ def big_json(query_str, query_str_bo):
                                         "query": phrase,
                                         "fields": get_fields('with_weights', ['bo_x_ewts'])
                                     }
-                                },
-                                etext_json(phrase, CONVERTER.toUnicode(phrase), names=True, source=True)
+                                }#,
+                                #etext_json(phrase, CONVERTER.toUnicode(phrase), names=True, source=True)
                             ]
                         }
                     })

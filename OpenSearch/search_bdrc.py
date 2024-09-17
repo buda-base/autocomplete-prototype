@@ -154,7 +154,7 @@ def big_json(query_str, query_str_bo):
 
     # 4. create all two-phrase combinations of the keywords
     #query_words = re.split("[^a-zA-Z0-9+']", query_str)
-    query_words = query_str.split()
+    query_words = re.split(r'[ -/_]+', query_str)
     number_of_tokens = len(query_words)
 
 
@@ -545,16 +545,17 @@ def print_jsons(print_me, place, query_str):
     # export OPENSEARCH_PRINT="tests" to recreate tests
     if os.getenv('OPENSEARCH_PRINT') == 'tests':
         # save searchkit jsons in ./tests
+        filename = re.sub('/', '-', query_str)
         if place == 'searchkit':
-            with open('tests/' + query_str + '-searchkit.json', 'w') as f:
+            with open('tests/' + filename + '-searchkit.json', 'w') as f:
                 for p in print_me:
                     f.write(json.dumps(p, indent=2, ensure_ascii=False))
         # save OS query in ./tests
         elif place == 'opensearch':
-            with open('tests/' + query_str + '-opensearch.json', 'w') as f:
+            with open('tests/' + filename + '-opensearch.json', 'w') as f:
                 f.write(json.dumps(print_me, indent=2, ensure_ascii=False))
         elif place == 'results':
-            with open('tests/' + query_str + '-results.json', 'w') as f:
+            with open('tests/' + filename + '-results.json', 'w') as f:
                 f.write(json.dumps(print_me, indent=2, ensure_ascii=False))
 
     # export OPENSEARCH_PRINT="debug" to print to command line

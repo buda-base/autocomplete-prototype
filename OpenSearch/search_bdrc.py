@@ -171,7 +171,7 @@ def big_json(query_str, query_str_bo):
                         cuts.append(cut)
         for cut in cuts:
             # limit query length to avoid OS error
-            if len(big_query['dis_max']['queries']) < 19 - number_of_tokens * 0.9:
+            if len(big_query['dis_max']['queries']) < 18 - number_of_tokens * 0.9:
                 phrase1 = ' '.join(query_words[:cut]) # mi
                 phrase2 = ' '.join(query_words[cut:]) # la ras pa
                 if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
@@ -706,8 +706,12 @@ def in_etext_search(data):
         }
     }
 
-    #print(json.dumps(os_json, indent=2))
+    print_jsons(os_json, 'opensearch', query_str)
+
     r = do_search(os_json, 'bdrc_prod')
+
+    print_jsons(r, 'results', query_str)
+
     if 'error' in r:
         print('Error in query:', json.dumps(os_json, indent=4))
         print('----')

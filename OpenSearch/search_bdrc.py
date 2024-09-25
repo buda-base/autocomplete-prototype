@@ -154,9 +154,8 @@ def big_json(query_str, query_str_bo):
 
     # 4. create all two-phrase combinations of the keywords
     #query_words = re.split("[^a-zA-Z0-9+']", query_str)
-    query_words = re.split(r'[ -/_]+', query_str)
+    query_words = re.split(r'[ \-/_]+', query_str)
     number_of_tokens = len(query_words)
-
 
     if number_of_tokens > 2:
         # define cut points to start in the middle, in case we cannot include all cut points

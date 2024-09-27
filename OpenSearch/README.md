@@ -257,7 +257,9 @@ GET bdrc_prod/_search
     }
 }
 ```
+
 ### Index autosuggest
 
 Creates the autosuggest index.  Deletes the old one. Takes the data directly from `bdrc_prod`
+
 `python3 indexer-autosuggest.py`

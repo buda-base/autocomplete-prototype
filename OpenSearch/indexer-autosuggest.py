@@ -1,17 +1,17 @@
 import os, json, re, time
 import requests
 from requests.auth import HTTPBasicAuth
-from uniseg.wordbreak import word_breakables
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-index_json = '/Users/roopekoski/Documents/Firma/BDRC/code/get-index-os/index.json'
-
-MAX_INPUT_LENGTH = 100
-CUT_AFTER = 50
+URL = os.getenv('OPENSEARCH_URL')
+USER = os.getenv('OPENSEARCH_USER')
+PASSWORD = os.getenv('OPENSEARCH_PASSWORD')
+#index_json = '/Users/roopekoski/Documents/Firma/BDRC/code/get-index-os/index.json'
 
 def create_mappings():
-    url = os.getenv('OPENSEARCH_URL') + INDEX_NAME
     # Delete index
-    response = requests.delete(url, auth=HTTPBasicAuth(os.getenv('OPENSEARCH_USER'), os.getenv('OPENSEARCH_PASSWORD')))
+    response = requests.delete(URL + '/bdrc_autosuggest', auth=HTTPBasicAuth(USER, PASSWORD))
     if response.status_code != 200:
         print(f"Failed to delete the old index: {response.status_code} {response.text}")
 
@@ -20,7 +20,7 @@ def create_mappings():
             "properties": {
                 "suggest_me": {
                     "type": "completion",
-                    "max_input_length": MAX_INPUT_LENGTH,
+                    "max_input_length": 100,
                     "contexts": [
                         {
                             "name": "scope",
@@ -41,7 +41,7 @@ def create_mappings():
             }
         }
     }
-    response = requests.put(url, json=mappings, auth=HTTPBasicAuth(user, password))
+    response = requests.put(URL  + '/bdrc_autosuggest', json=mappings, auth=HTTPBasicAuth(USER, PASSWORD))
     if response.status_code != 200:
         exit(f"Failed to create mappings: {response.status_code} {response.text}")
     else:
@@ -120,117 +120,26 @@ def get_weight(data):
 
     return int(score * 10000000)
 
-def normalize_label(label):
-    """
-    label normalization before sending to index
-    """
-    label = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", label)
-    return label
-
-def find_word_positions(s):
-    """
-    returns a tuple (cstart, cend) for each word in the sentence, Unicode-aware.
-
-    For instance on "Hello, 世界! This 'is a' test." it will return [(0, 5), (7, 8), (8, 9), (11, 15), (16, 18), (19, 20), (21, 25)]
-    corresponding to:
-
-    (0, 5): Hello
-    (7, 8): 世
-    (8, 9): 界
-    (11, 15): This
-    (16, 18): is
-    (19, 20): a
-    (21, 25): test
-    """
-    # Pattern to match groups of Unicode word characters + single quote (which we assume represents a letter in Wylie)
-    word_char_groups = re.finditer(r"('|\w)+", s, re.UNICODE)
-    word_breaks = list(word_breakables(s))
-    # returns a list with the same length as s that contains every word breaking
-    # opportunity, 0 for no break, 1 for break
-    
-    positions = []
-    
-    for match in word_char_groups:
-        start = match.start()
-        end = match.end()
-        
-        # Use uniseg's word_breakables to find word boundaries within Unicode word character groups
-        current_position = start
-        for i in range(start, end):
-            # Check if a break is possible at this position
-            if word_breaks[i] == 1 and s[i] != "'" and (i == 0 or s[i-1] != "'"):
-                # If a break is possible, add the word from current_position to i
-                if current_position != i:
-                    positions.append((current_position, i))
-                current_position = i
-        
-        # Append the last word segment if any
-        if current_position != end:
-            positions.append((current_position, end))
-
-    return positions
-
-def print_word_positions(s, positions):
-    """
-    Simple print function to debug positions
-    """
-    for (cstart, cend) in positions:
-        print("(%d, %d): %s" % (cstart, cend, s[cstart:cend]))
-
-#print_word_positions("Hello, 世界! This 'is a' test'.", find_word_positions("Hello, 世界! This 'is a' test"))
-
-def cut_positions_after(positions, cnum):
-    """
-    given a list of character positions (cstart, cend), return a new
-    list with only the positions before a certain character
-    """
-    if len(positions) == 0 or positions[-1][1] < cnum:
-        return positions
-
-    res = []
-    for position in positions:
-        if position[1] < cnum:
-            res.append(position)
-        else:
-            return res
-    return res
-
 # create variations to begin suggestions at any token
 def suggest_me_variations(label_list, weight):
     variations = []
     for label in label_list:
         # remove shads from end and harmonise apostrophes
-        label = normalize_label(label)
-        token_positions = find_word_positions(label)
-        length = len(token_positions)
-        if length == 0:
-            return []
+        label = re.sub('/$', '', label.strip())
+        label = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", label)
+        label = label[:256]
+        tokens = re.split('\s+', label)
+        length = len(tokens)
         if length > 2:
-            # first we cut all the tokens after character 256:
-            token_positions = cut_positions_after(token_positions, 256)
-            # then we add the partial tokens
-            for token_position_i in range(0, len(token_positions) - 1):
-                # we take all the positions between the current token and current token + 12 (or the end)
-                last_token_position_i = min(len(token_positions), token_position_i+12)
-                variant_positions = token_positions[token_position_i:last_token_position_i]
-                # we don't want suggestions of more than CUT_AFTER characters
-                # first calculate character coordinate to cut after for this variant:
-                variant_cut_after = positions[token_position_i][0] + CUT_AFTER
-                # we cut the list so that we don't have suggestions of more than CUT_AFTER characters
-                variant_positions = cut_positions_after(variant_positions, variant_cut_after)
-                # safeguard, shouldn't happen often:
-                if len(variant_positions) == 0:
-                    continue
-                # we take the substring between the first and last position of this variant
-                partial_match = label_list[variant_positions[0][0]:variant_positions[-1][1]]
-                variations.append({'input': partial_match, 'weight': int(weight * (1 - 0.01 * token_position_i))})
+            for i in range(0, len(tokens) - 1):
+                partial_match = ' '.join(tokens[i: i+12])
+                variations.append({'input': partial_match, 'weight': int(weight * (1 - 0.01 * i))})
         else:
-            # in order to strip punctuation we use the token coordinates:
-            variations.append({'input': label[token_positions[0][0]:token_positions[0][1]], 'weight': int(weight)})
-        
+            variations.append({'input': label, 'weight': int(weight)})
     return variations
 
 # create json of one page
+'''
 def one_doc(data, doc_id):
     puts = []
     prefLabels = {}
@@ -266,35 +175,118 @@ def one_doc(data, doc_id):
     # combine the json objects in ES format
     puts = '\n'.join(json.dumps(p) for p in puts)  + '\n'
     return puts, doc_id
+'''
 
-# read fron index.json in which each line is a json for one doc
-def index_labels():
-    doc_id = 0
-    puts = []
+
+# convert bdrc_prod output to an autosuggest batch
+def prepare_batch(prod_json, doc_id):
     batch = ''
-    with open(index_json) as file:
-        for line in file:
-            data = json.loads(line)
-            add_to_batch, doc_id = one_doc(data, doc_id)
+    # loop through docs from bdrc_prod
+    for doc in prod_json['hits']['hits']:
+        puts = []
+        prefLabels = {}
+        altLabels = {}
+        scope = ['all']
+        weight = get_weight(doc['_source'])
 
-            #input(json.dumps(add_to_batch, indent=4))
+        for field, value in doc['_source'].items():
+            # Create autosuggest variations for prefLabels and altLabels
+            if 'Label_' in field:
+                lang = re.sub('(pref|alt)Label_', '', field)
+                if 'prefLabel_' in field:
+                    prefLabels[lang] = suggest_me_variations(value, weight)
+                elif 'altLabel_' in field:
+                    altLabels[lang] = suggest_me_variations(value, weight * 0.6)
+            # collect IDs for scoped autosuggest
+            elif field in ['associatedTradition', 'inRootInstance', 'associated_res']:
+                scope += value
 
-            batch += add_to_batch
-            if len(batch) > batch_size:
-                if doc_id < start_at_doc:
-                    batch = ''
-                    print(doc_id, 'Skip')
-                    continue
-                send_batch(batch)
-                batch = ''
-                print(doc_id)
+        for lang in prefLabels:
+            doc_id += 1
+            puts += ([
+                { "index" : { "_index" : "bdrc_autosuggest", "_id" : doc_id } },
+                {'suggest_me': prefLabels[lang], 'scope': scope, 'lang': lang, 'id': doc['_id']}
+            ])
+        for lang in altLabels:
+            doc_id += 1
+            puts += ([
+                { "index" : { "_index" : "bdrc_autosuggest", "_id" : doc_id } },
+                {'suggest_me': altLabels[lang], 'scope': scope, 'lang': lang, 'id': doc['_id']}
+            ])
+        
+        if doc_id >= START_AT_DOC:
+            batch += '\n'.join(json.dumps(p) for p in puts)  + '\n'
 
+    return batch, doc_id
 
+def index_autosuggest_from_bdrc_prod():
+    doc_id = 0
+    scroll_size = 1000
+
+    # Initialize the scroll
+    search_url = f"{URL}/bdrc_prod/_search?scroll=30s"
+    search_body = {
+        "size": scroll_size,
+        "query": {
+            "bool": {
+                "must": [
+                    {
+                        "match_all": {}
+                    }
+                ],
+                "must_not": [
+                    {
+                        "term": {
+                            "type": "Etext"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+    auth = HTTPBasicAuth(USER, PASSWORD)
+
+    r = requests.post(search_url, json=search_body, auth=auth, verify=False)
+    if r.status_code != 200:
+        print('Error from Opensearch:', r.status_code, r.text)
+        exit()
+    response = r.json()
+
+    # Iterate through the scroll
+    while True:
+        # stop when no more results in the scroll
+        if not len(response['hits']['hits']):
+            print('Done')
+            break
+
+        print(f'Get from bdrc_prod: {doc_id} -')
+
+        scroll_id = response['_scroll_id']
+
+        # process the data from bdrc_prod and send it to bdrc_autosuggest
+        doc_id_begin = doc_id
+        batch, doc_id = prepare_batch(response, doc_id)
+        if batch:
+            print(f'Put to bdrc_autosuggest: {doc_id_begin} - {doc_id}')
+            send_batch(batch)
+        else:
+            print(f'skip until {START_AT_DOC}: {doc_id_begin} - {doc_id}')
+
+        # get the next batch
+        scroll_body = {
+            "scroll": "30s",
+            "scroll_id": scroll_id
+        }
+        r = requests.post(f"{URL}/_search/scroll", json=scroll_body, auth=auth, verify=False)
+        if r.status_code != 200:
+            print('Error from Opensearch:', r.status_code, r.text)
+            exit()
+        response = r.json()
 
 def send_batch(batch):
     headers = {"Content-Type": "application/json"}
-    url = os.getenv('OPENSEARCH_URL') + INDEX_NAME
-    response = requests.post(url + '/_bulk', headers=headers, data=batch, auth=HTTPBasicAuth(user, password))
+
+    response = requests.post(URL  + '/bdrc_autosuggest/_bulk', headers=headers, data=batch, auth=HTTPBasicAuth(USER, PASSWORD))
 
     # Try again after unauthorized.
     if response.status_code != 200:
@@ -307,8 +299,8 @@ def send_batch(batch):
             success = False
             for retry in range(1, 6):
                 time.sleep(retry)
-                print(f'Status code: {response.status_code}: Trying again {retry}/5')
-                response = requests.post(url + '/_bulk', headers=headers, data=batch, auth=HTTPBasicAuth(user, password))
+                print(f'Status code: {response.status_code} {response.text}: Trying again {retry}/5')
+                response = requests.post(URL + '/bdrc_autosuggest/_bulk', headers=headers, data=batch, auth=HTTPBasicAuth(USER, PASSWORD))
                 if response.status_code == 200:
                     print(f'Problem solved: {response.status_code}')
                     success = True
@@ -317,10 +309,15 @@ def send_batch(batch):
                 print(batch)
                 exit(f"Batch index failed: {response.status_code} {response.text}")
 
-start_at_doc = 0
-batch_size = 900000
 
-if __name__ == "__main__":
-    if not start_at_doc:
-        create_mappings()
-    index_labels()
+if URL == None or USER == None or PASSWORD == None:
+    exit('Need env variables OPENSEARCH_URL, OPENSEARCH_USER and OPENSEARCH_PASSWORD')
+
+START_AT_DOC = 0
+
+if not START_AT_DOC:
+    if __name__ == '__main__':
+        input('This will delete the old autosuggest and index it again from bdrc_prod. Press Enter.')
+    create_mappings()
+index_autosuggest_from_bdrc_prod()
+

@@ -257,10 +257,9 @@ GET bdrc_prod/_search
     }
 }
 ```
+
 ### Index autosuggest
 
-Autosuggest has been indexed, but if you want to do reindex, first download the main search index from bdrc_prod with
-`python3 get-index.py > index.json`
-Then index to bdrc_autosuggest with
-`indexer-autosuggest.py´
-This deletes the old index, creates mappings and then indexes everything.
+Creates the autosuggest index.  Deletes the old one. Takes the data directly from `bdrc_prod`
+
+`python3 indexer-autosuggest.py`

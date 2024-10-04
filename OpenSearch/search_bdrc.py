@@ -8,6 +8,7 @@ import io
 # suppress redundant messages in local
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+from pre_phonetix import fonetix_json, query_to_syllables, convert_to_fonetix
 
 from pyewts import pyewts
 CONVERTER = pyewts()
@@ -152,7 +153,11 @@ def big_json(query_str, query_str_bo):
     # 3. etext full match
     big_query['dis_max']['queries'].append(etext_json(query_str, query_str_bo))
 
-    # 4. create all two-phrase combinations of the keywords
+    # 4. Phonetics search
+    phonetics_json = fonetix_json(query_to_syllables(convert_to_fonetix(query_str)))
+    big_query['dis_max']['queries'].append(phonetics_json)
+
+    # 5. create all two-phrase combinations of the keywords
     #query_words = re.split("[^a-zA-Z0-9+']", query_str)
     query_words = re.split(r'[ \-/_]+', query_str)
     number_of_tokens = len(query_words)
@@ -194,7 +199,6 @@ def big_json(query_str, query_str_bo):
                     })
                     # append the pair to should
                     highlight_strings.append(phrase)
-
                 big_query['dis_max']['queries'].append({'bool': {'must': must}})
 
     highlight_query = highlight_json(highlight_strings)

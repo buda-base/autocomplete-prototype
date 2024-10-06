@@ -8,7 +8,7 @@ import io
 # suppress redundant messages in local
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-from pre_phonetix import fonetix_json, query_to_syllables, convert_to_fonetix
+from pre_phonetix import *
 
 from pyewts import pyewts
 CONVERTER = pyewts()
@@ -201,16 +201,31 @@ def big_json(query_str, query_str_bo):
                     highlight_strings.append(phrase)
                 big_query['dis_max']['queries'].append({'bool': {'must': must}})
 
-    highlight_query = highlight_json(highlight_strings)
+    highlight_query = highlight_json(highlight_strings, phonetics_json)
     #print(number_of_tokens, len(weight_fields), len(big_query['dis_max']['queries']), sep='\t')
-    return(big_query, highlight_query)
+    return big_query, highlight_query
 
-def highlight_json(highlight_strings):
+def highlight_json(highlight_strings, phonetics_json):
     should = []
     fields = get_fields('as_list')
+    # most parts
     for string in highlight_strings:
         should.append({"multi_match": {"type": "phrase", "query": string, "fields": fields}})
-    highlight_query = {"highlight_query": {"bool": {"should": should}}, "fields": {"*": {}}}
+    # phonetics
+    should.append(phonetics_json)
+    highlight_query = {"highlight_query": 
+        {"bool": 
+            {"should": 
+                should
+            }
+        },
+        "fields": {
+            "*": {},
+            "prefLabel_prePhon": {"fragment_size": 0},
+            "altLabel_prePhon": {"fragment_size": 0}
+        }
+    }
+
     return highlight_query
 
 def etext_json(query_str, query_str_bo, names=False, source=True):
@@ -469,9 +484,9 @@ def id_json_search(query_str, original_jsons):
 
     return [original_jsons[0], os_json]
 
-# Try to get highlights from all tokens of the query string, so that etext and metadata hits would be different.
-# Example query: "bla mchos sa skya bka' 'bum"
-def etext_highlights(results):
+def modify_highlights(results):
+    # Try to get highlights from all tokens of the query string, so that etext and metadata hits would be different.
+    # Example query: "bla mchos sa skya bka' 'bum"
     if 'responses' in results:
         for hit in results['responses'][0]['hits']['hits']:
             metadata_tokens = set()
@@ -493,6 +508,60 @@ def etext_highlights(results):
                 temp_inner_hits = hit['inner_hits']
                 ordered_inner_hits = {key: temp_inner_hits[key] for key in sorted_candidates if key in temp_inner_hits}
                 hit['inner_hits'] = ordered_inner_hits
+    
+                # We need prefLabel_bo_x_ewts with <em> tags in the highlights
+                '''
+                // WE HAVE THIS ALREADY for the query "Khyentse"
+                "_source": {
+                    "prefLabel_bo_x_ewts": [
+                        "mdo mkhyen brtse ye shes rdo rje'i gsung 'bum/",
+                        "gter chos/_mdo mkhyen brtse ye shes rdo rje/"
+                    ],
+                    "prefLabel_prePhon": [
+                        "do gyen dse ye se do je sung bum",
+                        "der co do gyen dse ye se do je"
+                    ]
+                },
+                "highlight": {
+                    "prefLabel_prePhon": [
+                        "do <em>gyen</em> <em>dse</em> ye se do je sung bum",
+                        "der co do <em>gyen</em> <em>dse</em> ye se do je"
+                    ],
+
+                // WE WANT TO ADD THIS
+                    "prefLabel_bo_x_ewts": [
+                        "mdo <em>mkhyen</em> <em>brtse</em> ye shes rdo rje'i gsung 'bum/",
+                        "gter chos/ mdo <em>mkhyen</em> <em>brtse</em> ye shes rdo rje/"
+                    ]
+                '''
+                if 'prefLabel_prePhon' in hit['highlight'] or 'altLabel_prePhon' in hit['highlight']:
+                    # do altLabel too
+                    for prefix in ['pref', 'alt']:
+                        prephons_labels = []
+                        source_prephons = hit['_source'].get(prefix + 'Label_prePhon', [])
+                        # loop through highlights to find the right preLabels from _source
+                        for highlight_prephon in hit['highlight'].get(prefix + 'Label_prePhon', []):
+                            for n in range(0, len(source_prephons)):
+                                # compare the source and the highlight prephons
+                                if source_prephons[n] == re.sub('</?em>', '', highlight_prephon):
+                                    # if a prephon n matches, take the corresponding prefLabel n to tag
+                                    prephons_labels.append({'prephon': highlight_prephon, 'label': hit['_source'][prefix + 'Label_bo_x_ewts'][n]})
+
+                        # Then tag prefLabels and add to highlights
+                        # Create an empty highlight field if necessary
+                        if prephons_labels and prefix + 'Label_bo_x_ewts' not in hit['highlight']:
+                                hit['highlight'][prefix + 'Label_bo_x_ewts'] = []
+                        for prephon_label in prephons_labels:
+                            # tokenize to copy tags from prePhon to prefLabels
+                            label_tokens = re.split('[ _]+', prephon_label['label'])
+                            prephon_tokens = re.split('[ _]+', prephon_label['prephon'])
+                            # copy tags
+                            for m in range(0, len(prephon_tokens)):
+                                if '<em>' in prephon_tokens[m]:
+                                    label_tokens[m] = '<em>' + label_tokens[m] + '</em>'
+                            # add to highlights
+                            hit['highlight'][prefix + 'Label_bo_x_ewts'].append(' '.join(label_tokens))
+
     return results
 
     
@@ -853,7 +922,7 @@ def msearch(test_json=None):
             print('Opensearch error:', results)
             return(results)
 
-    etext_highlights(results)
+    results = modify_highlights(results)
 
     print_jsons(results, 'results', query_str)
     return results if not test_json else data

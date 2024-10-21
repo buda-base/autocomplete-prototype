@@ -8,7 +8,6 @@ import io
 # suppress redundant messages in local
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-from pre_phonetix import *
 
 from pyewts import pyewts
 CONVERTER = pyewts()
@@ -47,10 +46,25 @@ def remove_etext_filter(data):
 
 def get_fields(structure, langs=['bo_x_ewts', 'en', 'hani', 'iast', 'mymr', 'khmr']):
     # if more than two languages, the two-phrase match starts reducing phrase pairs to avoid too big queries, and search suffers
-    all_fields = {"seriesName_bo_x_ewts": 0.05, "seriesName_en": 0.05, "summary_bo_x_ewts": 0.1, "summary_en": 0.1, "summary_hani": 0.1, "authorshipStatement_bo_x_ewts": 0.0002, "authorshipStatement_en": 0.0002, "publisherName_bo_x_ewts": 0.01, "publisherLocation_bo_x_ewts": 0.01, "publisherName_en": 0.01, "publisherLocation_en": 0.01, "publisherName_hani": 0.01, "publisherLocation_hani": 0.01, "prefLabel_hani": 1, "prefLabel_mymr": 1, "prefLabel_khmr": 1, "prefLabel_iast": 1, "prefLabel_bo_x_ewts": 1, "prefLabel_en": 1, "etext_authorshipStatement_bo_x_ewts": 0.0002, "etext_authorshipStatement_en": 0.0002, "etext_publisherName_bo_x_ewts": 0.01, "etext_publisherLocation_bo_x_ewts": 0.01, "etext_publisherName_en": 0.01, "etext_publisherLocation_en": 0.01, "etext_prefLabel_bo_x_ewts": 1, "etext_prefLabel_en": 1, "comment_bo_x_ewts": 0.00005, "comment_en": 0.00005, "comment_hani": 0.00005, "altLabel_hani": 0.6, "altLabel_iast": 0.6, "altLabel_mymr": 0.6, "altLabel_khmr": 0.6, "altLabel_bo_x_ewts": 0.6, "altLabel_en": 0.6, "authorName_bo_x_ewts": 0.8, "authorName_en": 0.8, "authorName_hani": 0.8, "authorName_iast": 0.8, "authorName_mymr": 0.8, "authorName_khmr": 0.8}
+    all_fields = {
+        "prefLabel_hani": 1, "prefLabel_mymr": 1, "prefLabel_khmr": 1, "prefLabel_iast": 1, "prefLabel_bo_x_ewts": 1, "prefLabel_en": 0.25, 
+        "prefLabel_bo_x_ewts.ewts-phonetic": 0.95, "prefLabel_bo_x_ewts.english-phonetic": 0.95,
+        "etext_prefLabel_bo_x_ewts": 1, "etext_prefLabel_en": 0.25, 
+        "authorName_bo_x_ewts": 0.7, "authorName_en": 0.15, "authorName_hani": 0.7, "authorName_iast": 0.7, "authorName_mymr": 0.7, "authorName_khmr": 0.7,
+        "authorName_bo_x_ewts.ewts-phonetic": 0.65, "authorName_bo_x_ewts.english-phonetic": 0.62, 
+        "altLabel_bo_x_ewts": 0.8, "altLabel_en": 0.2, "altLabel_hani": 0.8, "altLabel_iast": 0.8, "altLabel_mymr": 0.8, "altLabel_khmr": 0.8, 
+        "altLabel_bo_x_ewts.ewts-phonetic": 0.76, "altLabel_bo_x_ewts.english-phonetic": 0.76,
+        "summary_bo_x_ewts": 0.1, "summary_en": 0.1, "summary_hani": 0.1, 
+        "seriesName_bo_x_ewts": 0.05, "seriesName_en": 0.05, 
+        "publisherName_bo_x_ewts": 0.01, "publisherLocation_bo_x_ewts": 0.01, "publisherName_en": 0.01, "publisherLocation_en": 0.01, "publisherName_hani": 0.01, "publisherLocation_hani": 0.01, 
+        "etext_publisherName_bo_x_ewts": 0.01, "etext_publisherLocation_bo_x_ewts": 0.01, "etext_publisherName_en": 0.01, "etext_publisherLocation_en": 0.01, 
+        "authorshipStatement_bo_x_ewts": 0.1, 
+        "authorshipStatement_bo_x_ewts.ewts-phonetic": 0.095, "authorshipStatement_bo_x_ewts.english-phonetic": 0.095,
+        "comment_bo_x_ewts": 0.02, "comment_en": 0.02, "comment_hani": 0.02
+    }
 
     # select the fields of selected languages
-    fields = {k: v for k, v in all_fields.items() if any(k.endswith(lang) for lang in langs)}
+    fields = {k: v for k, v in all_fields.items() if any(f'_{lang}' in k for lang in langs)}
 
     if structure == 'with_weights':
         return [f'{name}^{weight}' for name, weight in list(fields.items())]
@@ -91,6 +105,7 @@ def and_json(query_str, query_str_bo):
     return json_obj, highlight_json(phrases)
 
 def big_json(query_str, query_str_bo):
+    # highlight strings is for rebuilding the highlight query
     highlight_strings = [query_str]
     # all queries go to "queries" under "dis_max"
     big_query = {
@@ -99,41 +114,8 @@ def big_json(query_str, query_str_bo):
         }
     }
 
-    # 1. Get phrases from bdrc_autosuggest with fuzzy match.
-    # This is a workaround to emulate fuzzy phrase match
-    os_json = autosuggest_json(query_str)
-    r = do_search(os_json, 'bdrc_autosuggest')
-    try: hits = r['suggest']['autocomplete'][0]['options']
-    except KeyError:
-        hits = []
-    matches = set()
-    length = len(re.split("[^a-zA-Z0-9+']", query_str))
-    for hit in hits:
-        matches.add(' '.join(re.split("[^a-zA-Z0-9+']", hit['text'])[:length]))
-
+    # 1. full phrase match
     weight_fields = get_fields('with_weights')
-    # Now we have phrases that do exist in bdrc_prod and fuzzy match the query string
-    # Add them to the query if not identical
-    for match in matches:
-        if match.lower() != query_str.lower():
-            should = {
-                'bool': {
-                    'must': [
-                        {
-                            'multi_match': {
-                                'type': 'phrase', 
-                                'query': match, 
-                                'fields': weight_fields
-                            }
-                        }
-                    ],
-                    'boost': 0.8
-                }
-            }
-            big_query['dis_max']['queries'].append(should)
-            highlight_strings.append(match)
-
-    # 2. full query perfect match
     should = {
         'bool': {
             'must': [
@@ -150,20 +132,15 @@ def big_json(query_str, query_str_bo):
     }
     big_query['dis_max']['queries'].append(should)
 
-    # 3. etext full match
+    # 2. etext full match
     big_query['dis_max']['queries'].append(etext_json(query_str, query_str_bo))
 
-    # 4. Phonetics search
-    phonetics_json = fonetix_json(query_to_syllables(convert_to_fonetix(query_str)))
-    big_query['dis_max']['queries'].append(phonetics_json)
-
-    # 5. create all two-phrase combinations of the keywords
-    #query_words = re.split("[^a-zA-Z0-9+']", query_str)
+    # 3. create all two-phrase combinations of the keywords
     query_words = re.split(r'[ \-/_]+', query_str)
     number_of_tokens = len(query_words)
 
-    if number_of_tokens > 2:
-        # define cut points to start in the middle, in case we cannot include all cut points
+    if number_of_tokens > 1:
+        # Define cut points to start in the middle, to exclude the shortest phrases if we need to exclude something to keep clauses under 1024
         cuts = []
         for n in range(0, int(number_of_tokens/2 + 1)):
             if not n:
@@ -174,13 +151,13 @@ def big_json(query_str, query_str_bo):
                     if cut > 0 and cut < number_of_tokens:		
                         cuts.append(cut)
         for cut in cuts:
-            # limit query length to avoid OS error
+            # Ajust below to avoid too many clauses error in Opensearch.
             if len(big_query['dis_max']['queries']) < 18 - number_of_tokens * 0.9:
                 phrase1 = ' '.join(query_words[:cut]) # mi
                 phrase2 = ' '.join(query_words[cut:]) # la ras pa
                 if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
                     continue
-                # add a phrase pair in must which will go inside should
+                # Collect phrase pairs in two should queries, and put the two groups inside a must query
                 must = []
                 for phrase in [phrase1, phrase2]:
                     must.append ({
@@ -193,37 +170,28 @@ def big_json(query_str, query_str_bo):
                                         "fields": get_fields('with_weights', ['bo_x_ewts'])
                                     }
                                 }#,
+                                # Uncomment to include etext in two-phrase query. This was commented out because of latency.
                                 #etext_json(phrase, CONVERTER.toUnicode(phrase), names=True, source=True)
                             ]
                         }
                     })
-                    # append the pair to should
                     highlight_strings.append(phrase)
                 big_query['dis_max']['queries'].append({'bool': {'must': must}})
 
-    highlight_query = highlight_json(highlight_strings, phonetics_json)
-    #print(number_of_tokens, len(weight_fields), len(big_query['dis_max']['queries']), sep='\t')
+    highlight_query = highlight_json(highlight_strings)
     return big_query, highlight_query
 
-def highlight_json(highlight_strings, phonetics_json):
+
+def highlight_json(highlight_strings):
     should = []
     fields = get_fields('as_list')
     # most parts
     for string in highlight_strings:
         should.append({"multi_match": {"type": "phrase", "query": string, "fields": fields}})
-    # phonetics
-    should.append(phonetics_json)
+
     highlight_query = {"highlight_query": 
-        {"bool": 
-            {"should": 
-                should
-            }
-        },
-        "fields": {
-            "*": {},
-            "prefLabel_prePhon": {"fragment_size": 0},
-            "altLabel_prePhon": {"fragment_size": 0}
-        }
+        {"bool": {"should": should }},
+        "fields": {"*": {}}
     }
 
     return highlight_query
@@ -564,10 +532,6 @@ def modify_highlights(results):
 
     return results
 
-    
-
-
-
 def replace_bdrc_query(original_jsons, replacement, highlight_query=None):
     for n in range(1, len(original_jsons), 2):
         # replace the main query
@@ -646,7 +610,6 @@ def print_jsons(print_me, place, query_str):
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest(test_json=None):
     data = request.json if not test_json else test_json
-    #print('autosuggest 1', json.dumps(data))
 
     # handle scope if it is None, [] or [""]
     scope = data.get('scope', ['all'])

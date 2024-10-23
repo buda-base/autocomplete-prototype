@@ -185,16 +185,62 @@ def big_json(query_str, query_str_bo):
 def highlight_json(highlight_strings):
     should = []
     fields = get_fields('as_list')
-    # most parts
     for string in highlight_strings:
         should.append({"multi_match": {"type": "phrase", "query": string, "fields": fields}})
 
-    highlight_query = {"highlight_query": 
-        {"bool": {"should": should }},
-        "fields": {"*": {}}
+    highlight_query = {
+        "highlight_query": {
+            "bool": {"should": should}
+        },
+        "fields": {
+            "*": {},
+            "*Label*": {"number_of_fragments": 0}
+        }
     }
-
     return highlight_query
+
+def modify_highlights(results):
+    # Get the best prefLabel highlights
+    if 'responses' in results:
+        for hit in results['responses'][0]['hits']['hits']:
+            if 'highlight' in hit:
+                combined_highlight = {}
+
+                # combine lenient fields to the main one
+                for mainfield in ['prefLabel_bo_x_ewts', 'altLabel_bo_x_ewts', 'authorName_bo_x_ewts', 'authorshipStatement_bo_x_ewts']:
+                    combined_values = hit['highlight'].get(mainfield , []) + \
+                        hit['highlight'].get(mainfield + '.ewts-phonetic', []) + \
+                        hit['highlight'].get(mainfield + '.english-phonetic', [])
+                    if combined_values:
+                        hit['highlight'][mainfield] = combined_values
+                    if mainfield + '.ewts-phonetic' in hit['highlight']:
+                        del hit['highlight'][mainfield + '.ewts-phonetic']
+                    if mainfield + '.english-phonetic' in hit['highlight']:
+                        del hit['highlight'][mainfield + '.english-phonetic']
+
+                # Select the best prefLabel highlight
+                if 'prefLabel_bo_x_ewts' in hit['highlight']:
+                    pref_label_ems = set()
+                    for subfield in hit['highlight']['prefLabel_bo_x_ewts']:
+                        these_ems = set(re.findall('<em>(.*?)</em>', subfield))
+                        if len(these_ems) > len(pref_label_ems):
+                            pref_label_ems = these_ems
+                            pref_label_highlight = subfield
+                    hit['highlight']['prefLabel_bo_x_ewts'] = [pref_label_highlight]
+
+                # Find fields with the most different tokens than in the prefLabel
+                for field, values in hit['highlight'].items():
+                    if field !='prefLabel_bo_x_ewts':
+                        most_unique = -1
+                        for value in values:
+                            these_ems = set(re.findall('<em>(.*?)</em>', value))
+                            unique_ems = these_ems - pref_label_ems
+                            if len(unique_ems) > most_unique:
+                                most_unique = len(unique_ems)
+                                most_unique_value = value
+                        hit['highlight'][field] = [most_unique_value]
+
+    return results
 
 def etext_json(query_str, query_str_bo, names=False, source=True):
     if source:
@@ -452,86 +498,6 @@ def id_json_search(query_str, original_jsons):
 
     return [original_jsons[0], os_json]
 
-def modify_highlights(results):
-    # Try to get highlights from all tokens of the query string, so that etext and metadata hits would be different.
-    # Example query: "bla mchos sa skya bka' 'bum"
-    if 'responses' in results:
-        for hit in results['responses'][0]['hits']['hits']:
-            metadata_tokens = set()
-            if 'highlight' in hit:
-                # 1. metadata tokens, in this case "sa skya bka' 'bum"
-                for field in hit['highlight']:
-                    for item in hit['highlight'][field]:
-                        metadata_tokens.update(re.findall('<em>(.*?)</em>', item))
-                # 2. find etext tokens that were not in metadata
-                candidates = {}
-                # Phrases are from two-phrase query, like "bla", "mchos sa skya bka' 'bum", "bla mchos", etc.
-                for phrase, inner_hits in hit.get('inner_hits', {}).items():
-                    if inner_hits['hits']['total']['value']:
-                        # Store the number of tokens unique to etext, like {"bla": 1, "sa skya bka' 'bum": 0,  "bla mchos": 2}
-                        etext_tokens = set(re.findall('\S+', phrase))
-                        candidates[phrase] = len(etext_tokens - metadata_tokens)
-                # Reorder the result json to have the etext-only matches first
-                sorted_candidates = dict(sorted(candidates.items(), key=lambda item: (item[1], len(item[0])), reverse=True))
-                temp_inner_hits = hit['inner_hits']
-                ordered_inner_hits = {key: temp_inner_hits[key] for key in sorted_candidates if key in temp_inner_hits}
-                hit['inner_hits'] = ordered_inner_hits
-    
-                # We need prefLabel_bo_x_ewts with <em> tags in the highlights
-                '''
-                // WE HAVE THIS ALREADY for the query "Khyentse"
-                "_source": {
-                    "prefLabel_bo_x_ewts": [
-                        "mdo mkhyen brtse ye shes rdo rje'i gsung 'bum/",
-                        "gter chos/_mdo mkhyen brtse ye shes rdo rje/"
-                    ],
-                    "prefLabel_prePhon": [
-                        "do gyen dse ye se do je sung bum",
-                        "der co do gyen dse ye se do je"
-                    ]
-                },
-                "highlight": {
-                    "prefLabel_prePhon": [
-                        "do <em>gyen</em> <em>dse</em> ye se do je sung bum",
-                        "der co do <em>gyen</em> <em>dse</em> ye se do je"
-                    ],
-
-                // WE WANT TO ADD THIS
-                    "prefLabel_bo_x_ewts": [
-                        "mdo <em>mkhyen</em> <em>brtse</em> ye shes rdo rje'i gsung 'bum/",
-                        "gter chos/ mdo <em>mkhyen</em> <em>brtse</em> ye shes rdo rje/"
-                    ]
-                '''
-                if 'prefLabel_prePhon' in hit['highlight'] or 'altLabel_prePhon' in hit['highlight']:
-                    # do altLabel too
-                    for prefix in ['pref', 'alt']:
-                        prephons_labels = []
-                        source_prephons = hit['_source'].get(prefix + 'Label_prePhon', [])
-                        # loop through highlights to find the right preLabels from _source
-                        for highlight_prephon in hit['highlight'].get(prefix + 'Label_prePhon', []):
-                            for n in range(0, len(source_prephons)):
-                                # compare the source and the highlight prephons
-                                if source_prephons[n] == re.sub('</?em>', '', highlight_prephon):
-                                    # if a prephon n matches, take the corresponding prefLabel n to tag
-                                    prephons_labels.append({'prephon': highlight_prephon, 'label': hit['_source'][prefix + 'Label_bo_x_ewts'][n]})
-
-                        # Then tag prefLabels and add to highlights
-                        # Create an empty highlight field if necessary
-                        if prephons_labels and prefix + 'Label_bo_x_ewts' not in hit['highlight']:
-                                hit['highlight'][prefix + 'Label_bo_x_ewts'] = []
-                        for prephon_label in prephons_labels:
-                            # tokenize to copy tags from prePhon to prefLabels
-                            label_tokens = re.split('[ _]+', prephon_label['label'])
-                            prephon_tokens = re.split('[ _]+', prephon_label['prephon'])
-                            # copy tags
-                            for m in range(0, len(prephon_tokens)):
-                                if '<em>' in prephon_tokens[m]:
-                                    label_tokens[m] = '<em>' + label_tokens[m] + '</em>'
-                            # add to highlights
-                            hit['highlight'][prefix + 'Label_bo_x_ewts'].append(' '.join(label_tokens))
-
-    return results
-
 def replace_bdrc_query(original_jsons, replacement, highlight_query=None):
     for n in range(1, len(original_jsons), 2):
         # replace the main query
@@ -563,7 +529,7 @@ def get_query_str(data):
     query_str_ascii = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str_ascii)    
     query_str_ascii = re.sub('[/_]+$', '', query_str_ascii)
     query_str_ascii = stopwords(query_str_ascii)
-    query_str_ascii = re.sub('^(t[oö]hoku|t[oö]h)[ .:]+(\d+)$', r'd\2', query_str_ascii, flags=re.IGNORECASE)
+    query_str_ascii = re.sub('^(t[oö]hoku|t[oö]h)[ .:]?(\d+)$', r'd\2', query_str_ascii, flags=re.IGNORECASE)
 
     # TODO convert 9th to 09
     # convert 9 to 09

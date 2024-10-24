@@ -52,8 +52,8 @@ def get_fields(structure, langs=['bo_x_ewts', 'en', 'hani', 'iast', 'mymr', 'khm
         "etext_prefLabel_bo_x_ewts": 1, "etext_prefLabel_en": 0.25, 
         "authorName_bo_x_ewts": 0.7, "authorName_en": 0.15, "authorName_hani": 0.7, "authorName_iast": 0.7, "authorName_mymr": 0.7, "authorName_khmr": 0.7,
         "authorName_bo_x_ewts.ewts-phonetic": 0.65, "authorName_bo_x_ewts.english-phonetic": 0.62, 
-        "altLabel_bo_x_ewts": 0.8, "altLabel_en": 0.2, "altLabel_hani": 0.8, "altLabel_iast": 0.8, "altLabel_mymr": 0.8, "altLabel_khmr": 0.8, 
-        "altLabel_bo_x_ewts.ewts-phonetic": 0.76, "altLabel_bo_x_ewts.english-phonetic": 0.76,
+        "altLabel_bo_x_ewts": 1, "altLabel_en": 0.25, "altLabel_hani": 1, "altLabel_iast": 1, "altLabel_mymr": 1, "altLabel_khmr": 1, 
+        "altLabel_bo_x_ewts.ewts-phonetic": 0.95, "altLabel_bo_x_ewts.english-phonetic": 0.95,
         "summary_bo_x_ewts": 0.1, "summary_en": 0.1, "summary_hani": 0.1, 
         "seriesName_bo_x_ewts": 0.05, "seriesName_en": 0.05, 
         "publisherName_bo_x_ewts": 0.01, "publisherLocation_bo_x_ewts": 0.01, "publisherName_en": 0.01, "publisherLocation_en": 0.01, "publisherName_hani": 0.01, "publisherLocation_hani": 0.01, 
@@ -851,7 +851,7 @@ def msearch(test_json=None):
             print('Opensearch error:', results)
             return(results)
 
-    results = modify_highlights(results)
+    #results = modify_highlights(results)
 
     print_jsons(results, 'results', query_str)
     return results if not test_json else data

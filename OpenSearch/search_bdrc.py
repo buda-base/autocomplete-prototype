@@ -851,7 +851,7 @@ def msearch(test_json=None):
             print('Opensearch error:', results)
             return(results)
 
-    #results = modify_highlights(results)
+    results = modify_highlights(results)
 
     print_jsons(results, 'results', query_str)
     return results if not test_json else data

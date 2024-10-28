@@ -228,17 +228,17 @@ def modify_highlights(results):
                             pref_label_highlight = subfield
                     hit['highlight']['prefLabel_bo_x_ewts'] = [pref_label_highlight]
 
-                # Find fields with the most different tokens than in the prefLabel
-                for field, values in hit['highlight'].items():
-                    if field !='prefLabel_bo_x_ewts':
-                        most_unique = -1
-                        for value in values:
-                            these_ems = set(re.findall('<em>(.*?)</em>', value))
-                            unique_ems = these_ems - pref_label_ems
-                            if len(unique_ems) > most_unique:
-                                most_unique = len(unique_ems)
-                                most_unique_value = value
-                        hit['highlight'][field] = [most_unique_value]
+                    # Find fields with the most different tokens than in the prefLabel
+                    for field, values in hit['highlight'].items():
+                        if field !='prefLabel_bo_x_ewts':
+                            most_unique = -1
+                            for value in values:
+                                these_ems = set(re.findall('<em>(.*?)</em>', value))
+                                unique_ems = these_ems - pref_label_ems
+                                if len(unique_ems) > most_unique:
+                                    most_unique = len(unique_ems)
+                                    most_unique_value = value
+                            hit['highlight'][field] = [most_unique_value]
 
     return results
 

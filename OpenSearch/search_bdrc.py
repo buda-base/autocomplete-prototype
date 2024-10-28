@@ -199,6 +199,23 @@ def highlight_json(highlight_strings):
     }
     return highlight_query
 
+def modify_aggs(ndjson):
+    for json_obj in ndjson:
+        if 'aggs' in json_obj and 'etext_quality' in json_obj['aggs']:
+            json_obj['aggs']['etext_quality'] = {
+                "filters": {
+                    "filters": {
+                        "range_0_to_0.8": { "range": { "etext_quality": { "from": 0, "to": 0.8 } } },
+                        "range_0.8_to_0.95": { "range": { "etext_quality": { "from": 0.8, "to": 0.95 } } },
+                        "range_0.95_to_1.01": { "range": { "etext_quality": { "from": 0.95, "to": 1.01 } } },
+                        "range_1.99_to_2.01": { "range": { "etext_quality": { "from": 1.99, "to": 2.01 } } },
+                        "range_2.99_to_3.01": { "range": { "etext_quality": { "from": 2.99, "to": 3.01 } } },
+                        "range_3.99_to_4.01": { "range": { "etext_quality": { "from": 3.99, "to": 4.01 } } }
+                        }
+                    }
+                }
+    return ndjson
+
 def modify_highlights(results):
     # Get the best prefLabel highlights
     if 'responses' in results:
@@ -840,6 +857,8 @@ def msearch(test_json=None):
         big_query, highlight_query = big_json(query_str, query_str_bo)
         data = replace_bdrc_query(original_jsons, big_query, highlight_query=highlight_query)
 
+
+    data = modify_aggs(data)
     print_jsons(data, 'opensearch', query_str)
     results = do_msearch(data, 'bdrc_prod')
 

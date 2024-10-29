@@ -199,22 +199,60 @@ def highlight_json(highlight_strings):
     }
     return highlight_query
 
-def modify_aggs(ndjson):
+def range_workaround_before_os(ndjson):
     for json_obj in ndjson:
-        if 'aggs' in json_obj and 'etext_quality' in json_obj['aggs']:
-            json_obj['aggs']['etext_quality'] = {
-                "filters": {
-                    "filters": {
-                        "range_0_to_0.8": { "range": { "etext_quality": { "from": 0, "to": 0.8 } } },
-                        "range_0.8_to_0.95": { "range": { "etext_quality": { "from": 0.8, "to": 0.95 } } },
-                        "range_0.95_to_1.01": { "range": { "etext_quality": { "from": 0.95, "to": 1.01 } } },
-                        "range_1.99_to_2.01": { "range": { "etext_quality": { "from": 1.99, "to": 2.01 } } },
-                        "range_2.99_to_3.01": { "range": { "etext_quality": { "from": 2.99, "to": 3.01 } } },
-                        "range_3.99_to_4.01": { "range": { "etext_quality": { "from": 3.99, "to": 4.01 } } }
+        if 'aggs' in json_obj:
+            aggs = json_obj['aggs']
+            for field_name, field_config in aggs.items():
+                if isinstance(field_config, dict) and 'range' in field_config:
+                    # Convert range aggregations to filter aggregations
+                    ranges = field_config['range']['ranges']
+                    filters = {}
+                    for r in ranges:
+                        from_val = r.get('from', '*')
+                        to_val = r.get('to', '*')
+                        # Convert numbers to float format
+                        if isinstance(from_val, (int, float)):
+                            from_val = f"{float(from_val)}"
+                        if isinstance(to_val, (int, float)):
+                            to_val = f"{float(to_val)}"
+                        filter_name = f"range_{from_val}_{to_val}"
+                        filters[filter_name] = {
+                            "range": {
+                                field_name.replace('range_', ''): {
+                                    k: v for k, v in r.items() if k in ['from', 'to']
+                                }
+                            }
+                        }
+                    json_obj['aggs'][field_name] = {
+                        "filters": {
+                            "filters": filters
                         }
                     }
-                }
     return ndjson
+
+def range_workaround_after_os(results):
+    for response in results.get('responses', []):
+        for agg in response.get('aggregations', {}):
+            if 'buckets' in response['aggregations'][agg]:
+                if isinstance(response['aggregations'][agg]['buckets'], dict):
+                    old_buckets = response['aggregations'][agg]['buckets']
+                    new_buckets = []
+                    for bucket in old_buckets:
+                        key_groups = re.search('range_([\d.]+)_([\d.]+)', bucket)
+                        from_key = key_groups.group(1)
+                        to_key = key_groups.group(2)
+                        if key_groups:
+                            new_bucket = {
+                                'key': from_key + '-' + to_key,
+                                'from': float(from_key), 
+                                'to': float(to_key), 
+                                'doc_count': old_buckets[bucket]['doc_count']
+                            }
+                            new_buckets.append(new_bucket)
+                    if new_buckets:
+                        response['aggregations'][agg]['buckets'] = sorted(new_buckets, key=lambda x: x['from'])
+    return results
 
 def modify_highlights(results):
     # Get the best prefLabel highlights
@@ -857,8 +895,7 @@ def msearch(test_json=None):
         big_query, highlight_query = big_json(query_str, query_str_bo)
         data = replace_bdrc_query(original_jsons, big_query, highlight_query=highlight_query)
 
-
-    data = modify_aggs(data)
+    data = range_workaround_before_os(data)
     print_jsons(data, 'opensearch', query_str)
     results = do_msearch(data, 'bdrc_prod')
 
@@ -871,6 +908,7 @@ def msearch(test_json=None):
             return(results)
 
     results = modify_highlights(results)
+    results = range_workaround_after_os(results)
 
     print_jsons(results, 'results', query_str)
     return results if not test_json else data

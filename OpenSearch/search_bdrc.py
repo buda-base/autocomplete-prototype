@@ -854,6 +854,21 @@ def in_etext_search(data):
                 
     return hits
 
+def exclude_commentaries(data):
+    for json_obj in data:
+        try: filters = json_obj['query']['function_score']['query']['bool']['filter']
+        except KeyError: continue
+        for filter in filters:
+            try: term = filter['bool']['should'][0]['term']
+            except KeyError: continue
+            if 'nocomm_search' in term:
+                del filter['bool']['should']
+                filter['bool']['must_not'] = [
+                    {"terms": {"workGenre": ["T1491", "T304", "T2397", "T3JT5054", "T2377", "T4JW5424", "T132", "T1488", "T10MS12837"]}},
+                    {"term": {"prefLabel_bo_x_ewts": "'grel"}}
+                ]
+    return data
+
 # search within etext
 @app.route('/in_etext', methods=['POST', 'GET'])
 def in_etext(test_json=None):
@@ -895,8 +910,10 @@ def msearch(test_json=None):
         big_query, highlight_query = big_json(query_str, query_str_bo)
         data = replace_bdrc_query(original_jsons, big_query, highlight_query=highlight_query)
 
+    data = exclude_commentaries(data)
     data = range_workaround_before_os(data)
     print_jsons(data, 'opensearch', query_str)
+
     results = do_msearch(data, 'bdrc_prod')
 
     # handle errors

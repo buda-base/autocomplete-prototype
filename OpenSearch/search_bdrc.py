@@ -860,7 +860,7 @@ def exclude_commentaries(data):
         except KeyError: continue
         for filter in filters:
             try: term = filter['bool']['should'][0]['term']
-            except KeyError: continue
+            except (KeyError, IndexError): continue
             if 'nocomm_search' in term:
                 del filter['bool']['should']
                 filter['bool']['must_not'] = [

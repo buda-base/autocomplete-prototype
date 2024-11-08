@@ -519,6 +519,9 @@ def id_json_search(query_str, original_jsons):
         id_code = query_str
 
     os_json = {
+        "_source": {
+            "excludes": ["etext_pages", "chunks"]
+        },
         "query": {
             "bool": {
                 "must": [
@@ -891,7 +894,9 @@ def msearch(test_json=None):
     # id search
     if re.search(r'([^\s0-9]\d)', query_str):
         data = id_json_search(query_str, original_jsons)
+        print_jsons(data, 'opensearch', query_str)
         results = do_msearch(data, 'bdrc_prod')
+        print_jsons(results, 'results', query_str)
         return results if not test_json else data
 
     # etext only

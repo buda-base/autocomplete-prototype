@@ -578,7 +578,7 @@ def get_query_str(data):
     else:
         query_str = find_string_value(data, 'query')
         if not query_str:
-            return query_str
+            return '', ''
 
     query_str = query_str.strip()
 

@@ -1,6 +1,6 @@
 import json, re, requests
 from requests.auth import HTTPBasicAuth
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 import jsonlines
@@ -8,6 +8,7 @@ import io
 # suppress redundant messages in local
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 from pyewts import pyewts
 CONVERTER = pyewts()
@@ -657,7 +658,7 @@ def autosuggest(test_json=None):
                     labels.append(value[0].strip())
             results.append({'lang': hit['_source'].get('lang'), 'res': query_str + ' ' + '; '.join(labels)})
             #result.append(query_str + ' ' + '; '.join(labels))
-        return results if not test_json else os_json
+        return jsonify(results) if not test_json else os_json
 
     # normal
     os_json = autosuggest_json(query_str, scope)
@@ -668,7 +669,7 @@ def autosuggest(test_json=None):
         print('Error in query:', json.dumps(os_json, indent=4))
         print('----')
         print('Opensearch error:', r)
-        return []
+        return jsonify([])
 
     results = []
     hits = r['suggest']['autocomplete'][0]['options']
@@ -679,7 +680,7 @@ def autosuggest(test_json=None):
             suggestion = suggestion_highlight(query_str, hit['text'])
         results.append({'lang': hit['_source'].get('lang'), 'res': suggestion})
 
-    return results if not test_json else os_json
+    return jsonify(results) if not test_json else os_json
 
 def in_etext_search(data):
     # search in the right language
@@ -881,6 +882,7 @@ def in_etext(test_json=None):
 
 # normal msearch
 @app.route('/msearch', methods=['POST', 'GET'])
+@app.route('/_msearch', methods=['POST', 'GET'])
 def msearch(test_json=None):
     ndjson = request.data.decode('utf-8') if not test_json else test_json
     original_jsons = []
@@ -937,3 +939,4 @@ def msearch(test_json=None):
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, host='0.0.0.0')
+    #app.run(debug=True, port=5000, host='0.0.0.0', ssl_context='adhoc')

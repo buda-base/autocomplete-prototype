@@ -69,24 +69,46 @@ def get_fields(structure, langs=['bo_x_ewts', 'en', 'hani', 'iast', 'mymr', 'khm
 
     if structure == 'with_weights':
         return [f'{name}^{weight}' for name, weight in list(fields.items())]
+    elif structure == 'exact_with_weights':
+        exact_fields = {}
+        for name, weight in fields.items():
+            if '.' in name and '_bo' in name:
+                continue
+            if '_bo' in name:
+                name = name + '.exact'
+            exact_fields[name] = weight
+        return [f'{name}^{weight}' for name, weight in list(exact_fields.items())]
     elif structure == 'for_autosuggest_highlight':
         return {key: {} for key in list(fields.keys())}
     elif structure == 'as_list':
         return list(fields.keys())
     elif structure == 'as_dict':
         return dict(list(fields.items()))
-
+    
+# rje mar pa ni 'gos kyi bla ma AND bka' brgyud rin po che'i rnam par
 def and_json(query_str, query_str_bo):
+    # extract exact phrases in double quotes
+    exact_phrases = []
+    exact_phrases_bo = []
+    if re.search('".+"', query_str):
+        exact_phrases = re.findall('(".*?\S+?.*?")', query_str)
+        query_str = re.sub('".+"', ' AND ', query_str)
+        exact_phrases_bo = re.findall('(".*?[\u0F00-\u0FFF]+?.*?")', query_str_bo)
+        query_str_bo = re.sub('".+"', 'AND', query_str_bo)
+
+    # split phrases at AND
     phrases = re.split(' AND ', query_str)
     phrases_bo = re.split('AND', query_str_bo)
 
     fields = get_fields('with_weights')
+    exact_fields = get_fields('exact_with_weights')
 
     must = []
-    # divide in phrases at AND
-    # the `min()` prevents out of range error, which should never happen
+    # phrases outside of double quotes
     for n in range(0, min(len(phrases), len(phrases_bo))):
         should = []
+        if not re.search('\S', phrases[n]):
+            continue
 
         # match metadata
         should.append({"multi_match": {"query": phrases[n], "fields": fields, "type": "phrase"}})
@@ -94,7 +116,22 @@ def and_json(query_str, query_str_bo):
         # match etext
         should.append(etext_json(phrases[n], phrases_bo[n], names=True, source=True))
 
-        # append shoulds to must, which produces the AND
+        # append shoulds of each phrase to must, which produces the AND
+        must.append({"bool": {"should": should}})
+
+    # phrases inside double quotes
+    for n in range(0, min(len(exact_phrases), len(exact_phrases_bo))):
+        should = []
+        if not re.search('\S', exact_phrases[n]):
+            continue
+
+        # match metadata
+        should.append({"multi_match": {"query": exact_phrases[n], "fields": exact_fields, "type": "phrase"}})
+
+        # match etext
+        should.append(etext_json(exact_phrases[n], exact_phrases_bo[n], names=True, source=True))
+
+        # append shoulds of each phrase to must, which produces the AND
         must.append({"bool": {"should": should}})
 
     json_obj = {
@@ -830,7 +867,7 @@ def in_etext_search(data):
                         # tidy up both ends of the snippet
                         if data['lang'] == 'bo':
                             snippet = re.sub('^.{0,5}[་།༔༑༄༅༴༶༸༺༻༼༽༾༿༊་༈༉༒ ་]', '', snippet)
-                            snippet = re.sub('([་།༔༑༄༅༴༶༸༺༻༼༽༾༿༊་༈༉༒ ་]).{0,5}$', r'\1', snippet)
+                            snippet = re.sub('([་།༔༑༄༅༴༶༸༺༻༼༽༾༿༊��༈༉༒ ་]).{0,5}$', r'\1', snippet)
                         else:
                             snippet = re.sub('^.{0,5}\s', '', snippet)
                             snippet = re.sub('\s.{0,5}$', '', snippet)
@@ -907,8 +944,8 @@ def msearch(test_json=None):
         data = replace_bdrc_query(original_jsons, big_query)
         data = remove_etext_filter(data)
 
-    # AND search
-    elif re.search('[^A-Z]AND[^A-Z]', query_str):
+    # AND search and 
+    elif re.search('[^A-Z]AND[^A-Z]', query_str) or re.search('".*"', query_str):
         big_query, highlight_query = and_json(query_str, query_str_bo)
         data = replace_bdrc_query(original_jsons, big_query, highlight_query=highlight_query)
 

@@ -78,6 +78,15 @@ def get_fields(structure, langs=['bo_x_ewts', 'en', 'hani', 'iast', 'mymr', 'khm
                 name = name + '.exact'
             exact_fields[name] = weight
         return [f'{name}^{weight}' for name, weight in list(exact_fields.items())]
+    elif structure == 'bo_exacts':
+        exact_fields = {}
+        for name, weight in fields.items():
+            if '.' in name and '_bo' in name:
+                continue
+            if '_bo' in name:
+                name = name + '.exact'
+            exact_fields[name] = weight
+        return list(fields.keys())
     elif structure == 'for_autosuggest_highlight':
         return {key: {} for key in list(fields.keys())}
     elif structure == 'as_list':
@@ -85,18 +94,17 @@ def get_fields(structure, langs=['bo_x_ewts', 'en', 'hani', 'iast', 'mymr', 'khm
     elif structure == 'as_dict':
         return dict(list(fields.items()))
     
-# rje mar pa ni 'gos kyi bla ma AND bka' brgyud rin po che'i rnam par
 def and_json(query_str, query_str_bo):
-    # extract exact phrases in double quotes
+    # double quotes split
     exact_phrases = []
     exact_phrases_bo = []
     if re.search('".+"', query_str):
-        exact_phrases = re.findall('(".*?\S+?.*?")', query_str)
+        exact_phrases = re.findall('"(.*?\S+?.*?)"', query_str)
         query_str = re.sub('".+"', ' AND ', query_str)
-        exact_phrases_bo = re.findall('(".*?[\u0F00-\u0FFF]+?.*?")', query_str_bo)
+        exact_phrases_bo = re.findall('"(.*?[\u0F00-\u0FFF]+?.*?)"', query_str_bo)
         query_str_bo = re.sub('".+"', 'AND', query_str_bo)
 
-    # split phrases at AND
+    # AND split
     phrases = re.split(' AND ', query_str)
     phrases_bo = re.split('AND', query_str_bo)
 
@@ -104,17 +112,22 @@ def and_json(query_str, query_str_bo):
     exact_fields = get_fields('exact_with_weights')
 
     must = []
+
+    # Remove empty phrases and whitespace-only phrases
+    phrases = [p for p in phrases if p.strip()]
+    phrases_bo = [p for p in phrases_bo if p.strip()]
+    exact_phrases = [p for p in exact_phrases if p.strip()]
+    exact_phrases_bo = [p for p in exact_phrases_bo if p.strip()]
+
     # phrases outside of double quotes
     for n in range(0, min(len(phrases), len(phrases_bo))):
         should = []
-        if not re.search('\S', phrases[n]):
-            continue
 
         # match metadata
         should.append({"multi_match": {"query": phrases[n], "fields": fields, "type": "phrase"}})
 
         # match etext
-        should.append(etext_json(phrases[n], phrases_bo[n], names=True, source=True))
+        should.append(etext_json(phrases[n], phrases_bo[n], names=True, source=True, exact=True))
 
         # append shoulds of each phrase to must, which produces the AND
         must.append({"bool": {"should": should}})
@@ -122,14 +135,12 @@ def and_json(query_str, query_str_bo):
     # phrases inside double quotes
     for n in range(0, min(len(exact_phrases), len(exact_phrases_bo))):
         should = []
-        if not re.search('\S', exact_phrases[n]):
-            continue
 
         # match metadata
         should.append({"multi_match": {"query": exact_phrases[n], "fields": exact_fields, "type": "phrase"}})
 
         # match etext
-        should.append(etext_json(exact_phrases[n], exact_phrases_bo[n], names=True, source=True))
+        should.append(etext_json(exact_phrases[n], exact_phrases_bo[n], names=True, source=True, exact=True))
 
         # append shoulds of each phrase to must, which produces the AND
         must.append({"bool": {"should": should}})
@@ -140,7 +151,7 @@ def and_json(query_str, query_str_bo):
         }
     }
 
-    return json_obj, highlight_json(phrases)
+    return json_obj, highlight_json(phrases, exact=exact_phrases)
 
 def big_json(query_str, query_str_bo):
     # highlight strings is for rebuilding the highlight query
@@ -220,9 +231,11 @@ def big_json(query_str, query_str_bo):
     return big_query, highlight_query
 
 
-def highlight_json(highlight_strings):
+def highlight_json(highlight_strings, exact=[]):
     should = []
     fields = get_fields('as_list')
+    if exact:
+        fields += get_fields('bo_exacts')
     for string in highlight_strings:
         should.append({"multi_match": {"type": "phrase", "query": string, "fields": fields}})
 
@@ -335,11 +348,15 @@ def modify_highlights(results):
 
     return results
 
-def etext_json(query_str, query_str_bo, names=False, source=True):
+def etext_json(query_str, query_str_bo, names=False, source=True, exact=False):
     if source:
         child_source = {"includes": ["etext_instance", "etext_pagination_in", "etext_imagegroup", "etext_vol", "volumeNumber"]}
     else:
         child_source = False
+    if exact:
+        exact_field = '.exact'
+    else:
+        exact_field = ''
 
     json_obj = {
         "bool": {
@@ -357,12 +374,12 @@ def etext_json(query_str, query_str_bo, names=False, source=True):
                                         "should": [
                                             {
                                                 "match_phrase": {
-                                                    "chunks.text_bo": query_str_bo
+                                                    "chunks.text_bo" + exact_field: query_str_bo
                                                 }
                                             },
                                             {
                                                 "match_phrase": {
-                                                    "chunks.text_en": query_str
+                                                    "chunks.text_en" + exact_field: query_str
                                                 }
                                             }
                                         ]
@@ -372,17 +389,17 @@ def etext_json(query_str, query_str_bo, names=False, source=True):
                                     "_source": source,
                                     "highlight": {
                                         "fields": {
-                                            "chunks.text_bo": {
+                                            "chunks.text_bo" + exact_field: {
                                                 "highlight_query": {
                                                     "match_phrase": {
-                                                        "chunks.text_bo": query_str_bo
+                                                        "chunks.text_bo" + exact_field: query_str_bo
                                                     }
                                                 }
                                             },
-                                            "chunks.text_en": {
+                                            "chunks.text_en" + exact_field: {
                                                 "highlight_query": {
                                                     "match_phrase": {
-                                                        "chunks.text_en": query_str
+                                                        "chunks.text_en" + exact_field: query_str
                                                     }
                                                 }
                                             }
@@ -396,17 +413,17 @@ def etext_json(query_str, query_str_bo, names=False, source=True):
                             "_source": child_source,
                             "highlight": {
                                 "fields": {
-                                    "chunks.text_bo": {
+                                    "chunks.text_bo" + exact_field: {
                                         "highlight_query": {
                                             "match_phrase": {
-                                                "chunks.text_bo": query_str_bo
+                                                "chunks.text_bo" + exact_field: query_str_bo
                                             }
                                         }
                                     },
-                                    "chunks.text_en": {
+                                    "chunks.text_en" + exact_field: {
                                         "highlight_query": {
                                             "match_phrase": {
-                                                "chunks.text_en": query_str
+                                                "chunks.text_en" + exact_field: query_str
                                             }
                                         }
                                     }
@@ -728,6 +745,10 @@ def in_etext_search(data):
     elif data['lang'] == 'bo' or data['lang'] == 'bo_x_ewts':
         query_field = "chunks.text_bo"
         query_str = query_string_bo
+    
+    # quotes -> exact
+    if re.search('^\s*".*"\s*$', query_str):
+        query_field += ".exact"
 
     # select the doc(s)
     if data.get('etext_instance'):

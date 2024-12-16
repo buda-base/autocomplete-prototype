@@ -242,6 +242,11 @@ def etext_json(query_str, query_str_bo, names=False, source=True):
                                                 "match_phrase": {
                                                     "chunks.text_en": query_str
                                                 }
+                                            },
+                                            {
+                                                "match_phrase": {
+                                                    "chunks.text_hani": query_str
+                                                }
                                             }
                                         ]
                                     }
@@ -261,6 +266,13 @@ def etext_json(query_str, query_str_bo, names=False, source=True):
                                                 "highlight_query": {
                                                     "match_phrase": {
                                                         "chunks.text_en": query_str
+                                                    }
+                                                }
+                                            },
+                                            "chunks.text_hani": {
+                                                "highlight_query": {
+                                                    "match_phrase": {
+                                                        "chunks.text_hani": query_str
                                                     }
                                                 }
                                             }
@@ -285,6 +297,13 @@ def etext_json(query_str, query_str_bo, names=False, source=True):
                                         "highlight_query": {
                                             "match_phrase": {
                                                 "chunks.text_en": query_str
+                                            }
+                                        }
+                                    },
+                                    "chunks.text_hani": {
+                                        "highlight_query": {
+                                            "match_phrase": {
+                                                "chunks.text_hani": query_str
                                             }
                                         }
                                     }
@@ -486,7 +505,7 @@ def etext_highlights(results):
                 for phrase, inner_hits in hit.get('inner_hits', {}).items():
                     if inner_hits['hits']['total']['value']:
                         # Store the number of tokens unique to etext, like {"bla": 1, "sa skya bka' 'bum": 0,  "bla mchos": 2}
-                        etext_tokens = set(re.findall('\S+', phrase))
+                        etext_tokens = set(re.findall(r'\S+', phrase))
                         candidates[phrase] = len(etext_tokens - metadata_tokens)
                 # Reorder the result json to have the etext-only matches first
                 sorted_candidates = dict(sorted(candidates.items(), key=lambda item: (item[1], len(item[0])), reverse=True))
@@ -530,7 +549,7 @@ def get_query_str(data):
     query_str_ascii = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str_ascii)    
     query_str_ascii = re.sub('[/_]+$', '', query_str_ascii)
     query_str_ascii = stopwords(query_str_ascii)
-    query_str_ascii = re.sub('^(t[oö]hoku|t[oö]h)[ .:]+(\d+)$', r'd\2', query_str_ascii, flags=re.IGNORECASE)
+    query_str_ascii = re.sub(r'^(t[oö]hoku|t[oö]h)[ .:]+(\d+)$', r'd\2', query_str_ascii, flags=re.IGNORECASE)
 
     # TODO convert 9th to 09
     # convert 9 to 09
@@ -626,14 +645,15 @@ def autosuggest(test_json=None):
     return results if not test_json else os_json
 
 def in_etext_search(data):
-    # search in the right language
+    # Prepare query strings
     query_string_ascii, query_string_bo = get_query_str(data['query'])
-    if data['lang'] == 'en':
-        query_field = "chunks.text_en"
-        query_str = query_string_ascii
-    elif data['lang'] == 'bo' or data['lang'] == 'bo_x_ewts':
-        query_field = "chunks.text_bo"
-        query_str = query_string_bo
+
+    # Define the query fields
+    query_fields = [
+        {"match_phrase": {"chunks.text_bo": query_string_bo}},
+        {"match_phrase": {"chunks.text_en": query_string_ascii}},
+        {"match_phrase": {"chunks.text_hani": data['query']}}
+    ]
 
     # select the doc(s)
     if data.get('etext_instance'):
@@ -672,11 +692,8 @@ def in_etext_search(data):
                                     "path": "chunks",
                                     "query": {
                                         "bool": {
-                                            "must": [
-                                                {
-                                                    "match_phrase": {query_field: query_str}
-                                                }
-                                            ]
+                                            "should": query_fields,
+                                            "minimum_should_match": 1
                                         }
                                     },
                                     "inner_hits": {
@@ -686,7 +703,17 @@ def in_etext_search(data):
                                         "size": 100,
                                         "highlight": {
                                             "fields": {
-                                                query_field: {
+                                                "chunks.text_bo": {
+                                                    "number_of_fragments": 0,
+                                                    "fragment_size": 0,
+                                                    "type": "plain"                 
+                                                },
+                                                "chunks.text_en": {
+                                                    "number_of_fragments": 0,
+                                                    "fragment_size": 0,
+                                                    "type": "plain"                 
+                                                },
+                                                "chunks.text_hani": {
                                                     "number_of_fragments": 0,
                                                     "fragment_size": 0,
                                                     "type": "plain"                 
@@ -710,11 +737,11 @@ def in_etext_search(data):
         }
     }
 
-    print_jsons(os_json, 'opensearch', query_str)
+    print_jsons(os_json, 'opensearch', data['query'])
 
     r = do_search(os_json, 'bdrc_prod')
 
-    print_jsons(r, 'results', query_str)
+    print_jsons(r, 'results', data['query'])
 
     if 'error' in r:
         print('Error in query:', json.dumps(os_json, indent=4))
@@ -724,13 +751,21 @@ def in_etext_search(data):
     hits = []
     for doc in r['hits']['hits']:
         for hit in doc['inner_hits']['chunks']['hits']['hits']:
+            # Determine which field was matched
+            matched_field = next(
+                (field for field in ['text_bo', 'text_en', 'text_hani'] 
+                 if field in hit['highlight']),
+                None
+            )
+            
             combined_snippets = 0
-            chunk = re.sub('<(/?)em>', r'<\1EM>', hit['highlight'][query_field][0])
+            chunk = re.sub('<(/?)em>', r'<\1EM>', hit['highlight'][f'chunks.{matched_field}'][0])
 
             # combine tokens of a highlight
             chunk = re.sub('</EM>(.{0,5})<EM>', r'\1', chunk, flags=re.DOTALL)
 
             # work around an Opensearch bug, which omits highlights at the beginning of a field
+            query_str = query_string_bo if matched_field == 'text_bo' else (query_string_ascii if matched_field == 'text_en' else data['query'])
             chunk = re.sub('^'+query_str, '<EM>'+query_str+'</EM>', chunk)
 
             # loop through <em> tags in a chunk
@@ -771,12 +806,12 @@ def in_etext_search(data):
                         chunk = re.sub('</EM>', '</em>', chunk, count = combined_snippets + 1)
 
                         # tidy up both ends of the snippet
-                        if data['lang'] == 'bo':
+                        if matched_field == 'text_bo':
                             snippet = re.sub('^.{0,5}[་།༔༑༄༅༴༶༸༺༻༼༽༾༿༊་༈༉༒ ་]', '', snippet)
                             snippet = re.sub('([་།༔༑༄༅༴༶༸༺༻༼༽༾༿༊་༈༉༒ ་]).{0,5}$', r'\1', snippet)
                         else:
-                            snippet = re.sub('^.{0,5}\s', '', snippet)
-                            snippet = re.sub('\s.{0,5}$', '', snippet)
+                            snippet = re.sub(r'^.{0,5}\s', '', snippet)
+                            snippet = re.sub(r'\s.{0,5}$', '', snippet)
                         snippet = '…' + snippet + '…'
                     else:
                         snippet = None

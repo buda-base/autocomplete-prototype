@@ -1,6 +1,6 @@
 import json, re, requests
 from requests.auth import HTTPBasicAuth
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 import jsonlines
@@ -8,7 +8,7 @@ import io
 # suppress redundant messages in local
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-from pre_phonetix import fonetix_json, query_to_syllables, convert_to_fonetix
+
 
 from pyewts import pyewts
 CONVERTER = pyewts()
@@ -47,29 +47,79 @@ def remove_etext_filter(data):
 
 def get_fields(structure, langs=['bo_x_ewts', 'en', 'hani', 'iast', 'mymr', 'khmr']):
     # if more than two languages, the two-phrase match starts reducing phrase pairs to avoid too big queries, and search suffers
-    all_fields = {"seriesName_bo_x_ewts": 0.05, "seriesName_en": 0.05, "summary_bo_x_ewts": 0.1, "summary_en": 0.1, "summary_hani": 0.1, "authorshipStatement_bo_x_ewts": 0.0002, "authorshipStatement_en": 0.0002, "publisherName_bo_x_ewts": 0.01, "publisherLocation_bo_x_ewts": 0.01, "publisherName_en": 0.01, "publisherLocation_en": 0.01, "publisherName_hani": 0.01, "publisherLocation_hani": 0.01, "prefLabel_hani": 1, "prefLabel_mymr": 1, "prefLabel_khmr": 1, "prefLabel_iast": 1, "prefLabel_bo_x_ewts": 1, "prefLabel_en": 1, "etext_authorshipStatement_bo_x_ewts": 0.0002, "etext_authorshipStatement_en": 0.0002, "etext_publisherName_bo_x_ewts": 0.01, "etext_publisherLocation_bo_x_ewts": 0.01, "etext_publisherName_en": 0.01, "etext_publisherLocation_en": 0.01, "etext_prefLabel_bo_x_ewts": 1, "etext_prefLabel_en": 1, "comment_bo_x_ewts": 0.00005, "comment_en": 0.00005, "comment_hani": 0.00005, "altLabel_hani": 0.6, "altLabel_iast": 0.6, "altLabel_mymr": 0.6, "altLabel_khmr": 0.6, "altLabel_bo_x_ewts": 0.6, "altLabel_en": 0.6, "authorName_bo_x_ewts": 0.8, "authorName_en": 0.8, "authorName_hani": 0.8, "authorName_iast": 0.8, "authorName_mymr": 0.8, "authorName_khmr": 0.8}
+    all_fields = {
+        "prefLabel_hani": 1, "prefLabel_mymr": 1, "prefLabel_khmr": 1, "prefLabel_iast": 1, "prefLabel_bo_x_ewts": 1, "prefLabel_en": 0.25, 
+        "prefLabel_bo_x_ewts.ewts-phonetic": 0.95, "prefLabel_bo_x_ewts.english-phonetic": 0.95,
+        "etext_prefLabel_bo_x_ewts": 1, "etext_prefLabel_en": 0.25, 
+        "authorName_bo_x_ewts": 0.7, "authorName_en": 0.15, "authorName_hani": 0.7, "authorName_iast": 0.7, "authorName_mymr": 0.7, "authorName_khmr": 0.7,
+        "authorName_bo_x_ewts.ewts-phonetic": 0.65, "authorName_bo_x_ewts.english-phonetic": 0.62, 
+        "altLabel_bo_x_ewts": 1, "altLabel_en": 0.25, "altLabel_hani": 1, "altLabel_iast": 1, "altLabel_mymr": 1, "altLabel_khmr": 1, 
+        "altLabel_bo_x_ewts.ewts-phonetic": 0.95, "altLabel_bo_x_ewts.english-phonetic": 0.95,
+        "summary_bo_x_ewts": 0.1, "summary_en": 0.1, "summary_hani": 0.1, 
+        "seriesName_bo_x_ewts": 0.05, "seriesName_en": 0.05, 
+        "publisherName_bo_x_ewts": 0.01, "publisherLocation_bo_x_ewts": 0.01, "publisherName_en": 0.01, "publisherLocation_en": 0.01, "publisherName_hani": 0.01, "publisherLocation_hani": 0.01, 
+        "etext_publisherName_bo_x_ewts": 0.01, "etext_publisherLocation_bo_x_ewts": 0.01, "etext_publisherName_en": 0.01, "etext_publisherLocation_en": 0.01, 
+        "authorshipStatement_bo_x_ewts": 0.1, 
+        "authorshipStatement_bo_x_ewts.ewts-phonetic": 0.095, "authorshipStatement_bo_x_ewts.english-phonetic": 0.095,
+        "comment_bo_x_ewts": 0.02, "comment_en": 0.02, "comment_hani": 0.02
+    }
 
     # select the fields of selected languages
-    fields = {k: v for k, v in all_fields.items() if any(k.endswith(lang) for lang in langs)}
+    fields = {k: v for k, v in all_fields.items() if any(f'_{lang}' in k for lang in langs)}
 
     if structure == 'with_weights':
         return [f'{name}^{weight}' for name, weight in list(fields.items())]
+    elif structure == 'exact_with_weights':
+        exact_fields = {}
+        for name, weight in fields.items():
+            if '.' in name and '_bo' in name:
+                continue
+            if '_bo' in name:
+                name = name + '.exact'
+            exact_fields[name] = weight
+        return [f'{name}^{weight}' for name, weight in list(exact_fields.items())]
+    elif structure == 'bo_exacts':
+        exact_fields = {}
+        for name, weight in fields.items():
+            if '.' in name and '_bo' in name:
+                continue
+            if '_bo' in name:
+                name = name + '.exact'
+            exact_fields[name] = weight
+        return list(fields.keys())
     elif structure == 'for_autosuggest_highlight':
         return {key: {} for key in list(fields.keys())}
     elif structure == 'as_list':
         return list(fields.keys())
     elif structure == 'as_dict':
         return dict(list(fields.items()))
-
+    
 def and_json(query_str, query_str_bo):
+    # double quotes split
+    exact_phrases = []
+    exact_phrases_bo = []
+    if re.search('".+"', query_str):
+        exact_phrases = re.findall(r'"(.*?\S+?.*?)"', query_str)
+        query_str = re.sub('".+"', ' AND ', query_str)
+        exact_phrases_bo = re.findall('"(.*?[\u0F00-\u0FFF]+?.*?)"', query_str_bo)
+        query_str_bo = re.sub('".+"', 'AND', query_str_bo)
+
+    # AND split
     phrases = re.split(' AND ', query_str)
     phrases_bo = re.split('AND', query_str_bo)
 
     fields = get_fields('with_weights')
+    exact_fields = get_fields('exact_with_weights')
 
     must = []
-    # divide in phrases at AND
-    # the `min()` prevents out of range error, which should never happen
+
+    # Remove empty phrases and whitespace-only phrases
+    phrases = [p for p in phrases if p.strip()]
+    phrases_bo = [p for p in phrases_bo if p.strip()]
+    exact_phrases = [p for p in exact_phrases if p.strip()]
+    exact_phrases_bo = [p for p in exact_phrases_bo if p.strip()]
+
+    # phrases outside of double quotes
     for n in range(0, min(len(phrases), len(phrases_bo))):
         should = []
 
@@ -77,9 +127,22 @@ def and_json(query_str, query_str_bo):
         should.append({"multi_match": {"query": phrases[n], "fields": fields, "type": "phrase"}})
 
         # match etext
-        should.append(etext_json(phrases[n], phrases_bo[n], names=True, source=True))
+        should.append(etext_json(phrases[n], phrases_bo[n], names=True, source=True, exact=True))
 
-        # append shoulds to must, which produces the AND
+        # append shoulds of each phrase to must, which produces the AND
+        must.append({"bool": {"should": should}})
+
+    # phrases inside double quotes
+    for n in range(0, min(len(exact_phrases), len(exact_phrases_bo))):
+        should = []
+
+        # match metadata
+        should.append({"multi_match": {"query": exact_phrases[n], "fields": exact_fields, "type": "phrase"}})
+
+        # match etext
+        should.append(etext_json(exact_phrases[n], exact_phrases_bo[n], names=True, source=True, exact=True))
+
+        # append shoulds of each phrase to must, which produces the AND
         must.append({"bool": {"should": should}})
 
     json_obj = {
@@ -88,9 +151,10 @@ def and_json(query_str, query_str_bo):
         }
     }
 
-    return json_obj, highlight_json(phrases)
+    return json_obj, highlight_json(phrases, exact=exact_phrases)
 
 def big_json(query_str, query_str_bo):
+    # highlight strings is for rebuilding the highlight query
     highlight_strings = [query_str]
     # all queries go to "queries" under "dis_max"
     big_query = {
@@ -99,41 +163,8 @@ def big_json(query_str, query_str_bo):
         }
     }
 
-    # 1. Get phrases from bdrc_autosuggest with fuzzy match.
-    # This is a workaround to emulate fuzzy phrase match
-    os_json = autosuggest_json(query_str)
-    r = do_search(os_json, 'bdrc_autosuggest')
-    try: hits = r['suggest']['autocomplete'][0]['options']
-    except KeyError:
-        hits = []
-    matches = set()
-    length = len(re.split("[^a-zA-Z0-9+']", query_str))
-    for hit in hits:
-        matches.add(' '.join(re.split("[^a-zA-Z0-9+']", hit['text'])[:length]))
-
+    # 1. full phrase match
     weight_fields = get_fields('with_weights')
-    # Now we have phrases that do exist in bdrc_prod and fuzzy match the query string
-    # Add them to the query if not identical
-    for match in matches:
-        if match.lower() != query_str.lower():
-            should = {
-                'bool': {
-                    'must': [
-                        {
-                            'multi_match': {
-                                'type': 'phrase', 
-                                'query': match, 
-                                'fields': weight_fields
-                            }
-                        }
-                    ],
-                    'boost': 0.8
-                }
-            }
-            big_query['dis_max']['queries'].append(should)
-            highlight_strings.append(match)
-
-    # 2. full query perfect match
     should = {
         'bool': {
             'must': [
@@ -150,20 +181,15 @@ def big_json(query_str, query_str_bo):
     }
     big_query['dis_max']['queries'].append(should)
 
-    # 3. etext full match
+    # 2. etext full match
     big_query['dis_max']['queries'].append(etext_json(query_str, query_str_bo))
 
-    # 4. Phonetics search
-    phonetics_json = fonetix_json(query_to_syllables(convert_to_fonetix(query_str)))
-    big_query['dis_max']['queries'].append(phonetics_json)
-
-    # 5. create all two-phrase combinations of the keywords
-    #query_words = re.split("[^a-zA-Z0-9+']", query_str)
+    # 3. create all two-phrase combinations of the keywords
     query_words = re.split(r'[ \-/_]+', query_str)
     number_of_tokens = len(query_words)
 
-    if number_of_tokens > 2:
-        # define cut points to start in the middle, in case we cannot include all cut points
+    if number_of_tokens > 1:
+        # Define cut points to start in the middle, to exclude the shortest phrases if we need to exclude something to keep clauses under 1024
         cuts = []
         for n in range(0, int(number_of_tokens/2 + 1)):
             if not n:
@@ -174,13 +200,13 @@ def big_json(query_str, query_str_bo):
                     if cut > 0 and cut < number_of_tokens:		
                         cuts.append(cut)
         for cut in cuts:
-            # limit query length to avoid OS error
+            # Ajust below to avoid too many clauses error in Opensearch.
             if len(big_query['dis_max']['queries']) < 18 - number_of_tokens * 0.9:
                 phrase1 = ' '.join(query_words[:cut]) # mi
                 phrase2 = ' '.join(query_words[cut:]) # la ras pa
                 if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
                     continue
-                # add a phrase pair in must which will go inside should
+                # Collect phrase pairs in two should queries, and put the two groups inside a must query
                 must = []
                 for phrase in [phrase1, phrase2]:
                     must.append ({
@@ -193,31 +219,144 @@ def big_json(query_str, query_str_bo):
                                         "fields": get_fields('with_weights', ['bo_x_ewts'])
                                     }
                                 }#,
+                                # Uncomment to include etext in two-phrase query. This was commented out because of latency.
                                 #etext_json(phrase, CONVERTER.toUnicode(phrase), names=True, source=True)
                             ]
                         }
                     })
-                    # append the pair to should
                     highlight_strings.append(phrase)
                 big_query['dis_max']['queries'].append({'bool': {'must': must}})
 
     highlight_query = highlight_json(highlight_strings)
-    #print(number_of_tokens, len(weight_fields), len(big_query['dis_max']['queries']), sep='\t')
-    return(big_query, highlight_query)
+    return big_query, highlight_query
 
-def highlight_json(highlight_strings):
+
+def highlight_json(highlight_strings, exact=[]):
     should = []
     fields = get_fields('as_list')
+    if exact:
+        fields += get_fields('bo_exacts')
     for string in highlight_strings:
         should.append({"multi_match": {"type": "phrase", "query": string, "fields": fields}})
-    highlight_query = {"highlight_query": {"bool": {"should": should}}, "fields": {"*": {}}}
+
+    highlight_query = {
+        "highlight_query": {
+            "bool": {"should": should}
+        },
+        "fields": {
+            "*": {},
+            "*Label*": {"number_of_fragments": 0}
+        }
+    }
     return highlight_query
 
-def etext_json(query_str, query_str_bo, names=False, source=True):
+def range_workaround_before_os(ndjson):
+    for json_obj in ndjson:
+        if 'aggs' in json_obj:
+            aggs = json_obj['aggs']
+            for field_name, field_config in aggs.items():
+                if isinstance(field_config, dict) and 'range' in field_config:
+                    # Convert range aggregations to filter aggregations
+                    ranges = field_config['range']['ranges']
+                    filters = {}
+                    for r in ranges:
+                        from_val = r.get('from', '*')
+                        to_val = r.get('to', '*')
+                        # Convert numbers to float format
+                        if isinstance(from_val, (int, float)):
+                            from_val = f"{float(from_val)}"
+                        if isinstance(to_val, (int, float)):
+                            to_val = f"{float(to_val)}"
+                        filter_name = f"range_{from_val}_{to_val}"
+                        filters[filter_name] = {
+                            "range": {
+                                field_name.replace('range_', ''): {
+                                    k: v for k, v in r.items() if k in ['from', 'to']
+                                }
+                            }
+                        }
+                    json_obj['aggs'][field_name] = {
+                        "filters": {
+                            "filters": filters
+                        }
+                    }
+    return ndjson
+
+def range_workaround_after_os(results):
+    for response in results.get('responses', []):
+        for agg in response.get('aggregations', {}):
+            if 'buckets' in response['aggregations'][agg]:
+                if isinstance(response['aggregations'][agg]['buckets'], dict):
+                    old_buckets = response['aggregations'][agg]['buckets']
+                    new_buckets = []
+                    for bucket in old_buckets:
+                        key_groups = re.search('range_([\d.]+)_([\d.]+)', bucket)
+                        from_key = key_groups.group(1)
+                        to_key = key_groups.group(2)
+                        if key_groups:
+                            new_bucket = {
+                                'key': from_key + '-' + to_key,
+                                'from': float(from_key), 
+                                'to': float(to_key), 
+                                'doc_count': old_buckets[bucket]['doc_count']
+                            }
+                            new_buckets.append(new_bucket)
+                    if new_buckets:
+                        response['aggregations'][agg]['buckets'] = sorted(new_buckets, key=lambda x: x['from'])
+    return results
+
+def modify_highlights(results):
+    # Get the best prefLabel highlights
+    if 'responses' in results:
+        for hit in results['responses'][0]['hits']['hits']:
+            if 'highlight' in hit:
+                combined_highlight = {}
+
+                # combine lenient fields to the main one
+                for mainfield in ['prefLabel_bo_x_ewts', 'altLabel_bo_x_ewts', 'authorName_bo_x_ewts', 'authorshipStatement_bo_x_ewts']:
+                    combined_values = hit['highlight'].get(mainfield , []) + \
+                        hit['highlight'].get(mainfield + '.ewts-phonetic', []) + \
+                        hit['highlight'].get(mainfield + '.english-phonetic', [])
+                    if combined_values:
+                        hit['highlight'][mainfield] = combined_values
+                    if mainfield + '.ewts-phonetic' in hit['highlight']:
+                        del hit['highlight'][mainfield + '.ewts-phonetic']
+                    if mainfield + '.english-phonetic' in hit['highlight']:
+                        del hit['highlight'][mainfield + '.english-phonetic']
+
+                # Select the best prefLabel highlight
+                if 'prefLabel_bo_x_ewts' in hit['highlight']:
+                    pref_label_ems = set()
+                    for subfield in hit['highlight']['prefLabel_bo_x_ewts']:
+                        these_ems = set(re.findall('<em>(.*?)</em>', subfield))
+                        if len(these_ems) > len(pref_label_ems):
+                            pref_label_ems = these_ems
+                            pref_label_highlight = subfield
+                    hit['highlight']['prefLabel_bo_x_ewts'] = [pref_label_highlight]
+
+                    # Find fields with the most different tokens than in the prefLabel
+                    for field, values in hit['highlight'].items():
+                        if field !='prefLabel_bo_x_ewts':
+                            most_unique = -1
+                            for value in values:
+                                these_ems = set(re.findall('<em>(.*?)</em>', value))
+                                unique_ems = these_ems - pref_label_ems
+                                if len(unique_ems) > most_unique:
+                                    most_unique = len(unique_ems)
+                                    most_unique_value = value
+                            hit['highlight'][field] = [most_unique_value]
+
+    return results
+
+def etext_json(query_str, query_str_bo, names=False, source=True, exact=False):
     if source:
         child_source = {"includes": ["etext_instance", "etext_pagination_in", "etext_imagegroup", "etext_vol", "volumeNumber"]}
     else:
         child_source = False
+    if exact:
+        exact_field = '.exact'
+    else:
+        exact_field = ''
 
     json_obj = {
         "bool": {
@@ -235,12 +374,12 @@ def etext_json(query_str, query_str_bo, names=False, source=True):
                                         "should": [
                                             {
                                                 "match_phrase": {
-                                                    "chunks.text_bo": query_str_bo
+                                                    "chunks.text_bo" + exact_field: query_str_bo
                                                 }
                                             },
                                             {
                                                 "match_phrase": {
-                                                    "chunks.text_en": query_str
+                                                    "chunks.text_en" + exact_field: query_str
                                                 }
                                             },
                                             {
@@ -255,17 +394,17 @@ def etext_json(query_str, query_str_bo, names=False, source=True):
                                     "_source": source,
                                     "highlight": {
                                         "fields": {
-                                            "chunks.text_bo": {
+                                            "chunks.text_bo" + exact_field: {
                                                 "highlight_query": {
                                                     "match_phrase": {
-                                                        "chunks.text_bo": query_str_bo
+                                                        "chunks.text_bo" + exact_field: query_str_bo
                                                     }
                                                 }
                                             },
-                                            "chunks.text_en": {
+                                            "chunks.text_en" + exact_field: {
                                                 "highlight_query": {
                                                     "match_phrase": {
-                                                        "chunks.text_en": query_str
+                                                        "chunks.text_en" + exact_field: query_str
                                                     }
                                                 }
                                             },
@@ -286,17 +425,17 @@ def etext_json(query_str, query_str_bo, names=False, source=True):
                             "_source": child_source,
                             "highlight": {
                                 "fields": {
-                                    "chunks.text_bo": {
+                                    "chunks.text_bo" + exact_field: {
                                         "highlight_query": {
                                             "match_phrase": {
-                                                "chunks.text_bo": query_str_bo
+                                                "chunks.text_bo" + exact_field: query_str_bo
                                             }
                                         }
                                     },
-                                    "chunks.text_en": {
+                                    "chunks.text_en" + exact_field: {
                                         "highlight_query": {
                                             "match_phrase": {
-                                                "chunks.text_en": query_str
+                                                "chunks.text_en" + exact_field: query_str
                                             }
                                         }
                                     },
@@ -454,6 +593,9 @@ def id_json_search(query_str, original_jsons):
         id_code = query_str
 
     os_json = {
+        "_source": {
+            "excludes": ["etext_pages", "chunks"]
+        },
         "query": {
             "bool": {
                 "must": [
@@ -514,10 +656,6 @@ def etext_highlights(results):
                 hit['inner_hits'] = ordered_inner_hits
     return results
 
-    
-
-
-
 def replace_bdrc_query(original_jsons, replacement, highlight_query=None):
     for n in range(1, len(original_jsons), 2):
         # replace the main query
@@ -540,7 +678,7 @@ def get_query_str(data):
     else:
         query_str = find_string_value(data, 'query')
         if not query_str:
-            return query_str
+            return '', ''
 
     query_str = query_str.strip()
 
@@ -596,7 +734,6 @@ def print_jsons(print_me, place, query_str):
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest(test_json=None):
     data = request.json if not test_json else test_json
-    #print('autosuggest 1', json.dumps(data))
 
     # handle scope if it is None, [] or [""]
     scope = data.get('scope', ['all'])
@@ -620,7 +757,7 @@ def autosuggest(test_json=None):
                     labels.append(value[0].strip())
             results.append({'lang': hit['_source'].get('lang'), 'res': query_str + ' ' + '; '.join(labels)})
             #result.append(query_str + ' ' + '; '.join(labels))
-        return results if not test_json else os_json
+        return jsonify(results) if not test_json else os_json
 
     # normal
     os_json = autosuggest_json(query_str, scope)
@@ -631,7 +768,7 @@ def autosuggest(test_json=None):
         print('Error in query:', json.dumps(os_json, indent=4))
         print('----')
         print('Opensearch error:', r)
-        return []
+        return jsonify([])
 
     results = []
     hits = r['suggest']['autocomplete'][0]['options']
@@ -642,18 +779,27 @@ def autosuggest(test_json=None):
             suggestion = suggestion_highlight(query_str, hit['text'])
         results.append({'lang': hit['_source'].get('lang'), 'res': suggestion})
 
-    return results if not test_json else os_json
+    return jsonify(results) if not test_json else os_json
 
 def in_etext_search(data):
     # Prepare query strings
     query_string_ascii, query_string_bo = get_query_str(data['query'])
-
+    
     # Define the query fields
     query_fields = [
-        {"match_phrase": {"chunks.text_bo": query_string_bo}},
         {"match_phrase": {"chunks.text_en": query_string_ascii}},
         {"match_phrase": {"chunks.text_hani": data['query']}}
     ]
+
+    # quotes -> exact
+    if re.search(r'^\s*".*"\s*$', query_str):
+        query_fields.append(
+            {"match_phrase": {"chunks.text_bo.exact": query_string_bo}},
+        )
+    else:
+        query_fields.append(
+            {"match_phrase": {"chunks.text_bo": query_string_bo}},
+        )
 
     # select the doc(s)
     if data.get('etext_instance'):
@@ -808,7 +954,7 @@ def in_etext_search(data):
                         # tidy up both ends of the snippet
                         if matched_field == 'text_bo':
                             snippet = re.sub('^.{0,5}[་།༔༑༄༅༴༶༸༺༻༼༽༾༿༊་༈༉༒ ་]', '', snippet)
-                            snippet = re.sub('([་།༔༑༄༅༴༶༸༺༻༼༽༾༿༊་༈༉༒ ་]).{0,5}$', r'\1', snippet)
+                            snippet = re.sub('([་།༔༑༄༅༴༶༸༺༻༼༽༾༿༊��༈༉༒ ་]).{0,5}$', r'\1', snippet)
                         else:
                             snippet = re.sub(r'^.{0,5}\s', '', snippet)
                             snippet = re.sub(r'\s.{0,5}$', '', snippet)
@@ -836,6 +982,21 @@ def in_etext_search(data):
                 
     return hits
 
+def exclude_commentaries(data):
+    for json_obj in data:
+        try: filters = json_obj['query']['function_score']['query']['bool']['filter']
+        except KeyError: continue
+        for filter in filters:
+            try: term = filter['bool']['should'][0]['term']
+            except (KeyError, IndexError): continue
+            if 'nocomm_search' in term:
+                del filter['bool']['should']
+                filter['bool']['must_not'] = [
+                    {"terms": {"workGenre": ["T1491", "T304", "T2397", "T3JT5054", "T2377", "T4JW5424", "T132", "T1488", "T10MS12837"]}},
+                    {"term": {"prefLabel_bo_x_ewts": "'grel"}}
+                ]
+    return data
+
 # search within etext
 @app.route('/in_etext', methods=['POST', 'GET'])
 def in_etext(test_json=None):
@@ -845,6 +1006,7 @@ def in_etext(test_json=None):
 
 # normal msearch
 @app.route('/msearch', methods=['POST', 'GET'])
+@app.route('/_msearch', methods=['POST', 'GET'])
 def msearch(test_json=None):
     ndjson = request.data.decode('utf-8') if not test_json else test_json
     original_jsons = []
@@ -858,7 +1020,9 @@ def msearch(test_json=None):
     # id search
     if re.search(r'([^\s0-9]\d)', query_str):
         data = id_json_search(query_str, original_jsons)
+        print_jsons(data, 'opensearch', query_str)
         results = do_msearch(data, 'bdrc_prod')
+        print_jsons(results, 'results', query_str)
         return results if not test_json else data
 
     # etext only
@@ -867,8 +1031,8 @@ def msearch(test_json=None):
         data = replace_bdrc_query(original_jsons, big_query)
         data = remove_etext_filter(data)
 
-    # AND search
-    elif re.search('[^A-Z]AND[^A-Z]', query_str):
+    # AND search and 
+    elif re.search('[^A-Z]AND[^A-Z]', query_str) or re.search('".*"', query_str):
         big_query, highlight_query = and_json(query_str, query_str_bo)
         data = replace_bdrc_query(original_jsons, big_query, highlight_query=highlight_query)
 
@@ -877,7 +1041,10 @@ def msearch(test_json=None):
         big_query, highlight_query = big_json(query_str, query_str_bo)
         data = replace_bdrc_query(original_jsons, big_query, highlight_query=highlight_query)
 
+    data = exclude_commentaries(data)
+    data = range_workaround_before_os(data)
     print_jsons(data, 'opensearch', query_str)
+
     results = do_msearch(data, 'bdrc_prod')
 
     # handle errors
@@ -888,10 +1055,12 @@ def msearch(test_json=None):
             print('Opensearch error:', results)
             return(results)
 
-    etext_highlights(results)
+    results = modify_highlights(results)
+    results = range_workaround_after_os(results)
 
     print_jsons(results, 'results', query_str)
     return results if not test_json else data
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, host='0.0.0.0')
+    #app.run(debug=True, port=5000, host='0.0.0.0', ssl_context='adhoc')

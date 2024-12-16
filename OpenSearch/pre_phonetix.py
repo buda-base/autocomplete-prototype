@@ -117,7 +117,7 @@ def wylie_to_phonetics(string):
 
     string = re.sub(consonant + "*phy(" + vowel + ")", r"CH\1", string)
     string = re.sub(consonant + "*py(" + vowel + ")", r"CH\1", string)
-    string = re.sub("(?:^|\s|')by(" + vowel + ")", r"J\1", string)
+    string = re.sub("(^|\s|')by(" + vowel + ")", r"\1J\2", string)
     # the rest
     string = re.sub(consonant + "*y(" + vowel + ")", r"Y\1", string)
 

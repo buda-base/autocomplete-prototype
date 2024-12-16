@@ -687,7 +687,7 @@ def get_query_str(data):
     query_str_ascii = re.sub("[‘’‛′‵ʼʻˈˊˋ`]", "'", query_str_ascii)    
     query_str_ascii = re.sub('[/_]+$', '', query_str_ascii)
     query_str_ascii = stopwords(query_str_ascii)
-    query_str_ascii = re.sub(r'^(t[oö]hoku|t[oö]h)[ .:]+(\d+)$', r'd\2', query_str_ascii, flags=re.IGNORECASE)
+    query_str_ascii = re.sub(r'^(t[oö]hoku|t[oö]h)[ .:]*(\d+)$', r'd\2', query_str_ascii, flags=re.IGNORECASE)
 
     # TODO convert 9th to 09
     # convert 9 to 09

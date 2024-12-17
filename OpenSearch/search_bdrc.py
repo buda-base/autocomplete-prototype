@@ -17,6 +17,13 @@ CONVERTER = pyewts()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all domains on all routes
 
+class NonASCIIJSONEncoder(json.JSONEncoder):
+    def __init__(self, **kwargs):
+        kwargs['ensure_ascii'] = False
+        super(NonASCIIJSONEncoder, self).__init__(**kwargs)
+
+app.json_encoder = NonASCIIJSONEncoder
+
 # we only return a certain number of hits per etext in the general search
 INNER_HITS_SIZE = 3
 

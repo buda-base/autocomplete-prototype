@@ -387,7 +387,7 @@ def etext_json(query_str, query_str_bo, names=False, source=True, exact=False):
                                             },
                                             {
                                                 "match_phrase": {
-                                                    "chunks.text_en" + exact_field: query_str
+                                                    "chunks.text_en": query_str
                                                 }
                                             },
                                             {
@@ -409,10 +409,10 @@ def etext_json(query_str, query_str_bo, names=False, source=True, exact=False):
                                                     }
                                                 }
                                             },
-                                            "chunks.text_en" + exact_field: {
+                                            "chunks.text_en": {
                                                 "highlight_query": {
                                                     "match_phrase": {
-                                                        "chunks.text_en" + exact_field: query_str
+                                                        "chunks.text_en": query_str
                                                     }
                                                 }
                                             },
@@ -440,10 +440,10 @@ def etext_json(query_str, query_str_bo, names=False, source=True, exact=False):
                                             }
                                         }
                                     },
-                                    "chunks.text_en" + exact_field: {
+                                    "chunks.text_en": {
                                         "highlight_query": {
                                             "match_phrase": {
-                                                "chunks.text_en" + exact_field: query_str
+                                                "chunks.text_en": query_str
                                             }
                                         }
                                     },

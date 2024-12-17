@@ -8,6 +8,7 @@ import io
 # suppress redundant messages in local
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+import logging
 
 
 from pyewts import pyewts
@@ -290,7 +291,7 @@ def range_workaround_after_os(results):
                     old_buckets = response['aggregations'][agg]['buckets']
                     new_buckets = []
                     for bucket in old_buckets:
-                        key_groups = re.search('range_([\d.]+)_([\d.]+)', bucket)
+                        key_groups = re.search(r'range_([\d.]+)_([\d.]+)', bucket)
                         from_key = key_groups.group(1)
                         to_key = key_groups.group(2)
                         if key_groups:
@@ -792,7 +793,9 @@ def in_etext_search(data):
     ]
 
     # quotes -> exact
-    if re.search(r'^\s*".*"\s*$', query_str):
+    exact = False
+    if re.search(r'^\s*".*"\s*$', query_string_bo):
+        exact = True
         query_fields.append(
             {"match_phrase": {"chunks.text_bo.exact": query_string_bo}},
         )
@@ -849,11 +852,6 @@ def in_etext_search(data):
                                         "size": 100,
                                         "highlight": {
                                             "fields": {
-                                                "chunks.text_bo": {
-                                                    "number_of_fragments": 0,
-                                                    "fragment_size": 0,
-                                                    "type": "plain"                 
-                                                },
                                                 "chunks.text_en": {
                                                     "number_of_fragments": 0,
                                                     "fragment_size": 0,
@@ -883,6 +881,9 @@ def in_etext_search(data):
         }
     }
 
+    fields = os_json['query']['constant_score']['filter']['bool']['must'][1]['nested']['inner_hits']['highlight']['fields']
+    bo_field = 'chunks.text_bo' if not exact else 'chunks.text_en.exact'
+    fields[bo_field] = { "number_of_fragments": 0, "fragment_size": 0, "type": "plain" }
     print_jsons(os_json, 'opensearch', data['query'])
 
     r = do_search(os_json, 'bdrc_prod')
@@ -898,12 +899,14 @@ def in_etext_search(data):
     for doc in r['hits']['hits']:
         for hit in doc['inner_hits']['chunks']['hits']['hits']:
             # Determine which field was matched
-            matched_field = next(
-                (field for field in ['text_bo', 'text_en', 'text_hani'] 
-                 if field in hit['highlight']),
-                None
-            )
+            matched_field = None
+            for field in ['text_bo', 'text_bo_exact', 'text_en', 'text_hani']:
+                if 'highlight' in hit and f'chunks.{field}' in hit['highlight']:
+                    matched_field = field
+                    break
             
+            if not matched_field:
+                continue
             combined_snippets = 0
             chunk = re.sub('<(/?)em>', r'<\1EM>', hit['highlight'][f'chunks.{matched_field}'][0])
 
@@ -1001,8 +1004,7 @@ def exclude_commentaries(data):
 @app.route('/in_etext', methods=['POST', 'GET'])
 def in_etext(test_json=None):
     data = request.json if not test_json else test_json
-    result = in_etext_search(data)
-    return result
+    return in_etext_search(data)
 
 # normal msearch
 @app.route('/msearch', methods=['POST', 'GET'])

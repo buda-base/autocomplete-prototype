@@ -882,7 +882,7 @@ def in_etext_search(data):
     }
 
     fields = os_json['query']['constant_score']['filter']['bool']['must'][1]['nested']['inner_hits']['highlight']['fields']
-    bo_field = 'chunks.text_bo' if not exact else 'chunks.text_en.exact'
+    bo_field = 'chunks.text_bo' if not exact else 'chunks.text_bo.exact'
     fields[bo_field] = { "number_of_fragments": 0, "fragment_size": 0, "type": "plain" }
     print_jsons(os_json, 'opensearch', data['query'])
 
@@ -900,12 +900,13 @@ def in_etext_search(data):
         for hit in doc['inner_hits']['chunks']['hits']['hits']:
             # Determine which field was matched
             matched_field = None
-            for field in ['text_bo', 'text_bo_exact', 'text_en', 'text_hani']:
+            for field in ['text_bo', 'text_bo.exact', 'text_en', 'text_hani']:
                 if 'highlight' in hit and f'chunks.{field}' in hit['highlight']:
                     matched_field = field
                     break
             
             if not matched_field:
+                logging.error("no matched field in "+str(hit))
                 continue
             combined_snippets = 0
             chunk = re.sub('<(/?)em>', r'<\1EM>', hit['highlight'][f'chunks.{matched_field}'][0])

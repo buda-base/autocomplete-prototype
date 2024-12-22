@@ -17,6 +17,13 @@ CONVERTER = pyewts()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all domains on all routes
 
+class NonASCIIJSONEncoder(json.JSONEncoder):
+    def __init__(self, **kwargs):
+        kwargs['ensure_ascii'] = False
+        super(NonASCIIJSONEncoder, self).__init__(**kwargs)
+
+app.json_encoder = NonASCIIJSONEncoder
+
 # we only return a certain number of hits per etext in the general search
 INNER_HITS_SIZE = 3
 
@@ -423,7 +430,7 @@ def etext_json(query_str, query_str_bo, names=False, source=True, exact=False):
                                             },
                                             {
                                                 "match_phrase": {
-                                                    "chunks.text_en" + exact_field: query_str
+                                                    "chunks.text_en": query_str
                                                 }
                                             },
                                             {
@@ -445,10 +452,10 @@ def etext_json(query_str, query_str_bo, names=False, source=True, exact=False):
                                                     }
                                                 }
                                             },
-                                            "chunks.text_en" + exact_field: {
+                                            "chunks.text_en": {
                                                 "highlight_query": {
                                                     "match_phrase": {
-                                                        "chunks.text_en" + exact_field: query_str
+                                                        "chunks.text_en": query_str
                                                     }
                                                 }
                                             },
@@ -476,10 +483,10 @@ def etext_json(query_str, query_str_bo, names=False, source=True, exact=False):
                                             }
                                         }
                                     },
-                                    "chunks.text_en" + exact_field: {
+                                    "chunks.text_en": {
                                         "highlight_query": {
                                             "match_phrase": {
-                                                "chunks.text_en" + exact_field: query_str
+                                                "chunks.text_en": query_str
                                             }
                                         }
                                     },

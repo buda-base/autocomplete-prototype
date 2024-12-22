@@ -30,7 +30,7 @@ INNER_HITS_SIZE = 3
 # 715 exact year ranked on top
 # 700 matches 8th century ranked lowest
 # associatedCentury, birthDate, deathDate, flourishedDate, publicationDate
-def parse_year(query_str):
+def parse_year(query_str): 
     # Find all 3-4 digit numbers bounded by spaces or string boundaries
     json_obj = []
     remaining_query = query_str

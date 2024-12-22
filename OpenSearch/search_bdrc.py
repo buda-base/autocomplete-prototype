@@ -20,6 +20,40 @@ CORS(app)  # Enable CORS for all domains on all routes
 # we only return a certain number of hits per etext in the general search
 INNER_HITS_SIZE = 3
 
+# 715 exact year ranked on top
+# 700 matches 8th century ranked lowest
+# associatedCentury, birthDate, deathDate, flourishedDate, publicationDate
+def parse_year(query_str):
+    # Find all 3-4 digit numbers bounded by spaces or string boundaries
+    json_obj = []
+    remaining_query = query_str
+    
+    for year in re.findall(r'(\b\d{3,4}\b)', query_str):
+        year = year.strip()
+        # Remove the year from remaining query
+        remaining_query = remaining_query.replace(year, '').strip()
+        
+        year_num = int(year)
+        shoulds = [
+            {"term": {"birthDate": {"value": year_num, "boost": 3.0}}},
+            {"term": {"deathDate": {"value": year_num, "boost": 3.0}}},
+            {"term": {"publicationDate": {"value": year_num, "boost": 3.0}}},
+        ]
+        if year.endswith('00'):
+            century = year_num // 100 + 1
+            print(century)
+            shoulds.append({"term": {"associatedCentury": {"value": century, "boost": 0.7}}})
+
+        json_obj.append({
+            "bool": {
+                "should": shoulds,
+                "minimum_should_match": 1
+            }
+        })
+
+
+    return json_obj, remaining_query
+
 def find_string_value(json_obj, key):
     if isinstance(json_obj, dict):
         for k, v in json_obj.items():
@@ -155,14 +189,22 @@ def and_json(query_str, query_str_bo):
     return json_obj, highlight_json(phrases, exact=exact_phrases)
 
 def big_json(query_str, query_str_bo):
-    # highlight strings is for rebuilding the highlight query
-    highlight_strings = [query_str]
-    # all queries go to "queries" under "dis_max"
+
+    year_json, query_str = parse_year(query_str)
+    if query_str.strip():
+        dis_max = [{'dis_max': {'queries': []}}]
+    else:
+        dis_max = []
+
     big_query = {
-        "dis_max": {
-            "queries": []
+        "bool": {
+            "must": dis_max + year_json
         }
     }
+
+    # highlight strings is for rebuilding the highlight query
+    highlight_strings = [query_str]
+
 
     # 1. full phrase match
     weight_fields = get_fields('with_weights')
@@ -180,53 +222,54 @@ def big_json(query_str, query_str_bo):
             'boost': 1.1
         }
     }
-    big_query['dis_max']['queries'].append(should)
+    if query_str.strip():
+        big_query['bool']['must'][0]['dis_max']['queries'].append(should)
 
-    # 2. etext full match
-    big_query['dis_max']['queries'].append(etext_json(query_str, query_str_bo))
+        # 2. etext full match
+        big_query['bool']['must'][0]['dis_max']['queries'].append(etext_json(query_str, query_str_bo))
 
-    # 3. create all two-phrase combinations of the keywords
-    query_words = re.split(r'[ \-/_]+', query_str)
-    number_of_tokens = len(query_words)
+        # 3. create all two-phrase combinations of the keywords
+        query_words = re.split(r'[ \-/_]+', query_str)
+        number_of_tokens = len(query_words)
 
-    if number_of_tokens > 1:
-        # Define cut points to start in the middle, to exclude the shortest phrases if we need to exclude something to keep clauses under 1024
-        cuts = []
-        for n in range(0, int(number_of_tokens/2 + 1)):
-            if not n:
-                cuts.append(int(number_of_tokens/2))
-            else:
-                for lr in [-1,1]:
-                    cut = int(number_of_tokens/2) + n * lr
-                    if cut > 0 and cut < number_of_tokens:		
-                        cuts.append(cut)
-        for cut in cuts:
-            # Ajust below to avoid too many clauses error in Opensearch.
-            if len(big_query['dis_max']['queries']) < 18 - number_of_tokens * 0.9:
-                phrase1 = ' '.join(query_words[:cut]) # mi
-                phrase2 = ' '.join(query_words[cut:]) # la ras pa
-                if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
-                    continue
-                # Collect phrase pairs in two should queries, and put the two groups inside a must query
-                must = []
-                for phrase in [phrase1, phrase2]:
-                    must.append ({
-                        "bool": {
-                            "should": [
-                                {
-                                    "multi_match": {
-                                        "type": "phrase",
-                                        "query": phrase,
-                                        "fields": get_fields('with_weights', ['bo_x_ewts'])
-                                    }
-                                }#,
-                                # Uncomment to include etext in two-phrase query. This was commented out because of latency.
-                                #etext_json(phrase, CONVERTER.toUnicode(phrase), names=True, source=True)
-                            ]
-                        }
-                    })
-                    highlight_strings.append(phrase)
-                big_query['dis_max']['queries'].append({'bool': {'must': must}})
+        if number_of_tokens > 1:
+            # Define cut points to start in the middle, to exclude the shortest phrases if we need to exclude something to keep clauses under 1024
+            cuts = []
+            for n in range(0, int(number_of_tokens/2 + 1)):
+                if not n:
+                    cuts.append(int(number_of_tokens/2))
+                else:
+                    for lr in [-1,1]:
+                        cut = int(number_of_tokens/2) + n * lr
+                        if cut > 0 and cut < number_of_tokens:		
+                            cuts.append(cut)
+            for cut in cuts:
+                # Ajust below to avoid too many clauses error in Opensearch.
+                if len(big_query['bool']['must'][0]['dis_max']['queries']) < 18 - number_of_tokens * 0.9:
+                    phrase1 = ' '.join(query_words[:cut]) # mi
+                    phrase2 = ' '.join(query_words[cut:]) # la ras pa
+                    if phrase2 in ["tu", "du", "su", "gi", "kyi", "gyi", "gis", "kyis", "gyis", "kyang", "yang", "ste", "de", "te", "go", "ngo", "do", "no", "bo", "ro", "so", "'o", "to", "pa", "ba", "gin", "kyin", "gyin", "yin", "c'ing", "zh'ing", "sh'ing", "c'ig", "zh'ig", "sh'ig", "c'e'o", "zh'e'o", "sh'e'o", "c'es", "zh'es", "pas", "pa'i", "pa'o", "bas", "ba'i", "la"]:
+                        continue
+                    # Collect phrase pairs in two should queries, and put the two groups inside a must query
+                    must = []
+                    for phrase in [phrase1, phrase2]:
+                        must.append ({
+                            "bool": {
+                                "should": [
+                                    {
+                                        "multi_match": {
+                                            "type": "phrase",
+                                            "query": phrase,
+                                            "fields": get_fields('with_weights', ['bo_x_ewts'])
+                                        }
+                                    }#,
+                                    # Uncomment to include etext in two-phrase query. This was commented out because of latency.
+                                    #etext_json(phrase, CONVERTER.toUnicode(phrase), names=True, source=True)
+                                ]
+                            }
+                        })
+                        highlight_strings.append(phrase)
+                    big_query['bool']['must'][0]['dis_max']['queries'].append({'bool': {'must': must}})
 
     highlight_query = highlight_json(highlight_strings)
     return big_query, highlight_query
@@ -529,6 +572,7 @@ def do_msearch(jsons, index):
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'
     ndjson = '\n'.join(json.dumps(x) for x in jsons) + '\n'
+
     r = requests.post(url, headers=headers, auth=auth, data=ndjson, timeout=30, verify=False)
     if r.status_code != 200:
         print('Error from Opensearch:', r.status_code, r.text)

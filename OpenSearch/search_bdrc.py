@@ -48,7 +48,6 @@ def parse_year(query_str):
         ]
         if year.endswith('00'):
             century = year_num // 100 + 1
-            print(century)
             shoulds.append({"term": {"associatedCentury": {"value": century, "boost": 0.7}}})
 
         json_obj.append({
@@ -166,7 +165,7 @@ def and_json(query_str, query_str_bo):
         should = []
 
         # match metadata
-        should.append({"multi_match": {"query": phrases[n], "fields": fields, "type": "phrase"}})
+        should.append({"multi_match": {"query": phrases[n], "fields": fields, "type": "phrase", "boost": 2.0}})
 
         # match etext
         should.append(etext_json(phrases[n], phrases_bo[n], names=True, source=True, exact=True))
@@ -179,7 +178,7 @@ def and_json(query_str, query_str_bo):
         should = []
 
         # match metadata
-        should.append({"multi_match": {"query": exact_phrases[n], "fields": exact_fields, "type": "phrase"}})
+        should.append({"multi_match": {"query": exact_phrases[n], "fields": exact_fields, "type": "phrase", "boost": 2.0}})
 
         # match etext
         should.append(etext_json(exact_phrases[n], exact_phrases_bo[n], names=True, source=True, exact=True))
@@ -195,8 +194,7 @@ def and_json(query_str, query_str_bo):
 
     return json_obj, highlight_json(phrases, exact=exact_phrases)
 
-def big_json(query_str, query_str_bo):
-
+def big_json(query_str, query_str_bo, omit_two_phrase=False):
     year_json, query_str = parse_year(query_str)
     if query_str.strip():
         dis_max = [{'dis_max': {'queries': []}}]
@@ -239,7 +237,7 @@ def big_json(query_str, query_str_bo):
         query_words = re.split(r'[ \-/_]+', query_str)
         number_of_tokens = len(query_words)
 
-        if number_of_tokens > 1:
+        if number_of_tokens > 1 and not omit_two_phrase:
             # Define cut points to start in the middle, to exclude the shortest phrases if we need to exclude something to keep clauses under 1024
             cuts = []
             for n in range(0, int(number_of_tokens/2 + 1)):
@@ -1061,7 +1059,7 @@ def in_etext(test_json=None):
 # normal msearch
 @app.route('/msearch', methods=['POST', 'GET'])
 @app.route('/_msearch', methods=['POST', 'GET'])
-def msearch(test_json=None):
+def msearch(test_json=None, omit_two_phrase=False):
     ndjson = request.data.decode('utf-8') if not test_json else test_json
     original_jsons = []
     for query in ndjson.split('\n')[:-1]:
@@ -1092,7 +1090,7 @@ def msearch(test_json=None):
 
     # normal search
     else:
-        big_query, highlight_query = big_json(query_str, query_str_bo)
+        big_query, highlight_query = big_json(query_str, query_str_bo, omit_two_phrase=omit_two_phrase)
         data = replace_bdrc_query(original_jsons, big_query, highlight_query=highlight_query)
 
     data = exclude_commentaries(data)
@@ -1106,6 +1104,10 @@ def msearch(test_json=None):
         if 'error' in r:
             #print('Error in query:', json.dumps(data, indent=4))
             #print('----')
+            # Call this function recursively, omitting the two-phrase query
+            if 'root_cause' in r['error'] and r['error']['root_cause'][0]['type'] == 'too_many_nested_clauses':
+                results = msearch(omit_two_phrase=True)
+                return results
             print('Opensearch error:', results)
             return(results)
 

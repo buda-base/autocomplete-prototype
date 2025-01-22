@@ -250,6 +250,7 @@ def big_json(query_str, query_str_bo, omit_two_phrase=False):
                             cuts.append(cut)
             for cut in cuts:
                 # Ajust below to avoid too many clauses error in Opensearch.
+                # (If clauses are still too many, two-phrase query will be omittedaltogether.)
                 if len(big_query['bool']['must'][0]['dis_max']['queries']) < 18 - number_of_tokens * 0.9:
                     phrase1 = ' '.join(query_words[:cut]) # mi
                     phrase2 = ' '.join(query_words[cut:]) # la ras pa
@@ -274,8 +275,7 @@ def big_json(query_str, query_str_bo, omit_two_phrase=False):
                             }
                         })
                         highlight_strings.append(phrase)
-                    big_query['bool']['must'][0]['dis_max']['queries'].append({'bool': {'must': must}})
-
+                    big_query['bool']['must'][0]['dis_max']['queries'].append({'bool': {'must': must, 'boost': 0.2}})
     highlight_query = highlight_json(highlight_strings)
     return big_query, highlight_query
 

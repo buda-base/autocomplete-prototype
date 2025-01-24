@@ -210,7 +210,6 @@ def big_json(query_str, query_str_bo, omit_two_phrase=False):
     # highlight strings is for rebuilding the highlight query
     highlight_strings = [query_str]
 
-
     # 1. full phrase match
     weight_fields = get_fields('with_weights')
     should = {
@@ -285,7 +284,7 @@ def highlight_json(highlight_strings, exact=[]):
     fields = get_fields('as_list')
     if exact:
         fields += get_fields('bo_exacts')
-    for string in highlight_strings:
+    for string in highlight_strings + exact:
         should.append({"multi_match": {"type": "phrase", "query": string, "fields": fields}})
 
     highlight_query = {

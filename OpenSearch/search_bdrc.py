@@ -360,7 +360,7 @@ def modify_highlights(results):
             if 'highlight' in hit:
                 combined_highlight = {}
 
-                # combine lenient fields to the main one
+                # combine lenient highlight fields to the main one
                 for mainfield in ['prefLabel_bo_x_ewts', 'altLabel_bo_x_ewts', 'authorName_bo_x_ewts', 'authorshipStatement_bo_x_ewts']:
                     combined_values = hit['highlight'].get(mainfield , []) + \
                         hit['highlight'].get(mainfield + '.ewts-phonetic', []) + \
@@ -394,6 +394,35 @@ def modify_highlights(results):
                                     most_unique_value = value
                             hit['highlight'][field] = [most_unique_value]
 
+                # Check that a tiny match in metadata does not prevent a perfect etext match from highlights
+                # count tokens in the main highlight
+                metadata_tokens_qty = 0
+                for metadata_field in hit['highlight']:
+                    for metadata in hit['highlight'][metadata_field]:
+                        tokens_qty = len(re.findall('<em>', metadata))
+                        if tokens_qty > metadata_tokens_qty:
+                            metadata_tokens_qty = tokens_qty
+                # count tokens in the etext highlight
+                if 'inner_hits' in hit and 'etext' in hit['inner_hits']:
+                    for etext_hit in hit['inner_hits']['etext']['hits'].get('hits', []):
+                        if 'inner_hits' in etext_hit and 'chunks' in etext_hit['inner_hits']:
+                            for chunk_hit in etext_hit['inner_hits']['chunks']['hits'].get('hits', []):
+                                for highlight_field in chunk_hit.get('highlight', []):
+
+                                    # work around opensearch bug
+                                    if len(chunk_hit['highlight'][highlight_field]) == 2 and chunk_hit['highlight'][highlight_field][0].endswith('</em>'):
+                                        chunk_hit['highlight'][highlight_field] = [''.join(chunk_hit['highlight'][highlight_field])]
+
+                                    # debug
+                                    if len(chunk_hit['highlight'][highlight_field]) > 1:
+                                        print('more than one etext chunk!', chunk_hit['highlight'][highlight_field])
+
+                                    for etext_highlight in chunk_hit['highlight'][highlight_field]:
+                                        etext_tokens_qty = len(re.findall('<em>', chunk_hit['highlight'][highlight_field][0]))
+                                        # delete the main highlight if etext matches much better
+                                        if etext_tokens_qty * 0.8 >= metadata_tokens_qty:
+                                            del hit['highlight']
+    
     return results
 
 def etext_json(query_str, query_str_bo, names=False, source=True, exact=False):

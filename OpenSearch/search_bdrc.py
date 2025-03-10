@@ -413,10 +413,6 @@ def modify_highlights(results):
                                     if len(chunk_hit['highlight'][highlight_field]) == 2 and chunk_hit['highlight'][highlight_field][0].endswith('</em>'):
                                         chunk_hit['highlight'][highlight_field] = [''.join(chunk_hit['highlight'][highlight_field])]
 
-                                    # debug
-                                    if len(chunk_hit['highlight'][highlight_field]) > 1:
-                                        print('more than one etext chunk!', chunk_hit['highlight'][highlight_field])
-
                                     for etext_highlight in chunk_hit['highlight'][highlight_field]:
                                         etext_tokens_qty = len(re.findall('<em>', chunk_hit['highlight'][highlight_field][0]))
                                         # delete the main highlight if etext matches much better
@@ -693,6 +689,11 @@ def id_json_search(query_str, original_jsons):
                                 {
                                     "term": {
                                         "graphs": id_code
+                                    }
+                                },
+                                {
+                                    "term": {
+                                        "merged": id_code
                                     }
                                 }
                             ],

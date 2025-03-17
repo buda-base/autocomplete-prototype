@@ -418,6 +418,7 @@ def modify_highlights(results):
                                         # delete the main highlight if etext matches much better
                                         if etext_tokens_qty * 0.8 >= metadata_tokens_qty:
                                             del hit['highlight']
+                                            break
     
     return results
 

@@ -416,7 +416,7 @@ def modify_highlights(results):
                                     for etext_highlight in chunk_hit['highlight'][highlight_field]:
                                         etext_tokens_qty = len(re.findall('<em>', chunk_hit['highlight'][highlight_field][0]))
                                         # delete the main highlight if etext matches much better
-                                        if etext_tokens_qty * 0.8 >= metadata_tokens_qty:
+                                        if etext_tokens_qty * 0.8 >= metadata_tokens_qty and "highlight" in hit:
                                             del hit['highlight']
                                             break
     

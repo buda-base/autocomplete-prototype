@@ -396,14 +396,14 @@ def modify_highlights(results):
 
                 # Check that a tiny match in metadata does not prevent a perfect etext match from highlights
                 # count tokens in the main highlight
-                metadata_tokens_qty = 0
-                for metadata_field in hit['highlight']:
-                    for metadata in hit['highlight'][metadata_field]:
-                        tokens_qty = len(re.findall('<em>', metadata))
-                        if tokens_qty > metadata_tokens_qty:
-                            metadata_tokens_qty = tokens_qty
-                # count tokens in the etext highlight
-                if 'inner_hits' in hit and 'etext' in hit['inner_hits']:
+                if "highlight" in hit and 'inner_hits' in hit and 'etext' in hit['inner_hits']:
+                    metadata_tokens_qty = 0
+                    for metadata_field in hit['highlight']:
+                        for metadata in hit['highlight'][metadata_field]:
+                            tokens_qty = len(re.findall('<em>', metadata))
+                            if tokens_qty > metadata_tokens_qty:
+                                metadata_tokens_qty = tokens_qty
+                        # count tokens in the etext highlight
                     for etext_hit in hit['inner_hits']['etext']['hits'].get('hits', []):
                         if 'inner_hits' in etext_hit and 'chunks' in etext_hit['inner_hits']:
                             for chunk_hit in etext_hit['inner_hits']['chunks']['hits'].get('hits', []):

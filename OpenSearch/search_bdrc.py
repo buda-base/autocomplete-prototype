@@ -194,7 +194,7 @@ def and_json(query_str, query_str_bo):
 
     return json_obj, highlight_json(phrases, exact=exact_phrases)
 
-def big_json(query_str, query_str_bo, omit_two_phrase=False):
+def big_json(query_str, query_str_bo, omit_two_phrase=False, omit_etext=False):
     year_json, query_str = parse_year(query_str)
     if query_str.strip():
         dis_max = [{'dis_max': {'queries': []}}]
@@ -230,7 +230,8 @@ def big_json(query_str, query_str_bo, omit_two_phrase=False):
         big_query['bool']['must'][0]['dis_max']['queries'].append(should)
 
         # 2. etext full match
-        big_query['bool']['must'][0]['dis_max']['queries'].append(etext_json(query_str, query_str_bo))
+        if not omit_etext:
+            big_query['bool']['must'][0]['dis_max']['queries'].append(etext_json(query_str, query_str_bo))
 
         # 3. create all two-phrase combinations of the keywords
         query_words = re.split(r'[ \-/_]+', query_str)
@@ -1080,6 +1081,10 @@ def exclude_commentaries(data):
                 ]
     return data
 
+def omit_etext(original_jsons):
+    json_str = json.dumps(original_jsons)
+    return '"exclude_etexts": "true"' in json_str
+    
 # search within etext
 @app.route('/in_etext', methods=['POST', 'GET'])
 def in_etext(test_json=None):
@@ -1120,7 +1125,7 @@ def msearch(test_json=None, omit_two_phrase=False):
 
     # normal search
     else:
-        big_query, highlight_query = big_json(query_str, query_str_bo, omit_two_phrase=omit_two_phrase)
+        big_query, highlight_query = big_json(query_str, query_str_bo, omit_two_phrase=omit_two_phrase, omit_etext=omit_etext(original_jsons))
         data = replace_bdrc_query(original_jsons, big_query, highlight_query=highlight_query)
 
     data = exclude_commentaries(data)

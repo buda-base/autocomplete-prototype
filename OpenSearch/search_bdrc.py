@@ -1073,6 +1073,8 @@ def exclude_commentaries(data):
         for filter in filters:
             try: term = filter['bool']['should'][0]['term']
             except (KeyError, IndexError): continue
+            if 'exclude_etexts' in term:
+                del filter['bool']['should']
             if 'nocomm_search' in term:
                 del filter['bool']['should']
                 filter['bool']['must_not'] = [
@@ -1080,10 +1082,6 @@ def exclude_commentaries(data):
                     {"term": {"prefLabel_bo_x_ewts": "'grel"}}
                 ]
     return data
-
-def omit_etext(original_jsons):
-    json_str = json.dumps(original_jsons)
-    return '"exclude_etexts": "true"' in json_str
     
 # search within etext
 @app.route('/in_etext', methods=['POST', 'GET'])
@@ -1097,7 +1095,10 @@ def in_etext(test_json=None):
 def msearch(test_json=None, omit_two_phrase=False):
     ndjson = request.data.decode('utf-8') if not test_json else test_json
     original_jsons = []
+    should_omit_etexts = False
     for query in ndjson.split('\n')[:-1]:
+        if '"exclude_etexts":"true"' in query:
+            should_omit_etexts = True
         original_jsons.append(json.loads(query))
     query_str, query_str_bo = get_query_str(original_jsons[1])
 
@@ -1125,7 +1126,7 @@ def msearch(test_json=None, omit_two_phrase=False):
 
     # normal search
     else:
-        big_query, highlight_query = big_json(query_str, query_str_bo, omit_two_phrase=omit_two_phrase, omit_etext=omit_etext(original_jsons))
+        big_query, highlight_query = big_json(query_str, query_str_bo, omit_two_phrase=omit_two_phrase, omit_etext=should_omit_etexts)
         data = replace_bdrc_query(original_jsons, big_query, highlight_query=highlight_query)
 
     data = exclude_commentaries(data)

@@ -27,6 +27,9 @@ app.json_encoder = NonASCIIJSONEncoder
 # we only return a certain number of hits per etext in the general search
 INNER_HITS_SIZE = 3
 
+# allow missing tokens every SLOP_VALUE tokens
+SLOP_VALUE = 10
+
 # 715 exact year ranked on top
 # 700 matches 8th century ranked lowest
 # associatedCentury, birthDate, deathDate, flourishedDate, publicationDate
@@ -196,6 +199,8 @@ def and_json(query_str, query_str_bo):
 
 def big_json(query_str, query_str_bo, omit_two_phrase=False, omit_etext=False):
     year_json, query_str = parse_year(query_str)
+    query_words = re.split(r'[ \-/_]+', query_str)
+    number_of_tokens = len(query_words)
     if query_str.strip():
         dis_max = [{'dis_max': {'queries': []}}]
     else:
@@ -219,7 +224,8 @@ def big_json(query_str, query_str_bo, omit_two_phrase=False, omit_etext=False):
                     'multi_match': {
                         'type': 'phrase', 
                         'query': query_str, 
-                        'fields': weight_fields
+                        'fields': weight_fields,
+                        'slop': int(number_of_tokens/SLOP_VALUE)
                     }
                 }
             ],
@@ -234,9 +240,6 @@ def big_json(query_str, query_str_bo, omit_two_phrase=False, omit_etext=False):
             big_query['bool']['must'][0]['dis_max']['queries'].append(etext_json(query_str, query_str_bo))
 
         # 3. create all two-phrase combinations of the keywords
-        query_words = re.split(r'[ \-/_]+', query_str)
-        number_of_tokens = len(query_words)
-
         if number_of_tokens > 1 and not omit_two_phrase:
             # Define cut points to start in the middle, to exclude the shortest phrases if we need to exclude something to keep clauses under 1024
             cuts = []
@@ -286,7 +289,14 @@ def highlight_json(highlight_strings, exact=[]):
     if exact:
         fields += get_fields('bo_exacts')
     for string in highlight_strings + exact:
-        should.append({"multi_match": {"type": "phrase", "query": string, "fields": fields}})
+        should.append({
+            "multi_match": {
+                "type": "phrase", 
+                "query": string, 
+                "fields": fields,
+                "slop": int(len(re.split(r'[ \-/_]+', string)) / SLOP_VALUE)
+            }
+        })
 
     highlight_query = {
         "highlight_query": {
@@ -1038,7 +1048,7 @@ def in_etext_search(data):
                         # tidy up both ends of the snippet
                         if matched_field == 'text_bo':
                             snippet = re.sub('^.{0,5}[་།༔༑༄༅༴༶༸༺༻༼༽༾༿༊་༈༉༒ ་]', '', snippet)
-                            snippet = re.sub('([་།༔༑༄༅༴༶༸༺༻༼༽༾༿༊��༈༉༒ ་]).{0,5}$', r'\1', snippet)
+                            snippet = re.sub('([་།༔༑༄༅༴༶༸༺༻༼༽༾༿༊༈༉༒ ་]).{0,5}$', r'\1', snippet)
                         else:
                             snippet = re.sub(r'^.{0,5}\s', '', snippet)
                             snippet = re.sub(r'\s.{0,5}$', '', snippet)

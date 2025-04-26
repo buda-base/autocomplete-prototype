@@ -750,8 +750,12 @@ def etext_highlights(results):
 def replace_bdrc_query(original_jsons, replacement, highlight_query=None):
     for n in range(1, len(original_jsons), 2):
         # replace the main query
-        try: original_jsons[n]["query"]["function_score"]["query"]["bool"]["must"] = [replacement]
-        except KeyError:
+        try:
+            if 'sort' in original_jsons[n]:
+                original_jsons[n]["query"]["bool"]["must"] = [replacement]
+            else:
+                original_jsons[n]["query"]["function_score"]["query"]["bool"]["must"] = [replacement]
+        except (KeyError, IndexError):
             print('original_jsons', original_jsons[n])
             print('replacement', replacement)
 
@@ -1076,15 +1080,19 @@ def in_etext_search(data):
                 
     return hits
 
-def exclude_commentaries(data):
+def exclude_filters(data):
     for json_obj in data:
         try: filters = json_obj['query']['function_score']['query']['bool']['filter']
-        except KeyError: continue
+        except KeyError:
+            try: filters = json_obj['query']['bool']['filter']
+            except KeyError: continue
         for filter in filters:
             try: term = filter['bool']['should'][0]['term']
             except (KeyError, IndexError): continue
             if 'exclude_etexts' in term:
+                print(filter)
                 del filter['bool']['should']
+                print(filter)
             if 'nocomm_search' in term:
                 del filter['bool']['should']
                 filter['bool']['must_not'] = [
@@ -1129,7 +1137,7 @@ def msearch(test_json=None, omit_two_phrase=False):
         data = replace_bdrc_query(original_jsons, big_query)
         data = remove_etext_filter(data)
 
-    # AND search and 
+    # AND search and double quotes
     elif re.search('[^A-Z]AND[^A-Z]', query_str) or re.search('".*"', query_str):
         big_query, highlight_query = and_json(query_str, query_str_bo)
         data = replace_bdrc_query(original_jsons, big_query, highlight_query=highlight_query)
@@ -1139,7 +1147,8 @@ def msearch(test_json=None, omit_two_phrase=False):
         big_query, highlight_query = big_json(query_str, query_str_bo, omit_two_phrase=omit_two_phrase, omit_etext=should_omit_etexts)
         data = replace_bdrc_query(original_jsons, big_query, highlight_query=highlight_query)
 
-    data = exclude_commentaries(data)
+
+    data = exclude_filters(data)
     data = range_workaround_before_os(data)
     print_jsons(data, 'opensearch', query_str)
 

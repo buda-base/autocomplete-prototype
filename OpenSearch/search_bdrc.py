@@ -28,7 +28,7 @@ app.json_encoder = NonASCIIJSONEncoder
 INNER_HITS_SIZE = 3
 
 # allow missing tokens every SLOP_VALUE tokens
-SLOP_VALUE = 10
+SLOP_VALUE = 6
 
 # 715 exact year ranked on top
 # 700 matches 8th century ranked lowest

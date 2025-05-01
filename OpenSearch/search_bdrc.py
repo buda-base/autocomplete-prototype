@@ -1089,9 +1089,7 @@ def exclude_filters(data):
             try: term = filter['bool']['should'][0]['term']
             except (KeyError, IndexError): continue
             if 'exclude_etexts' in term:
-                print(filter)
                 del filter['bool']['should']
-                print(filter)
             if 'nocomm_search' in term:
                 del filter['bool']['should']
                 filter['bool']['must_not'] = [

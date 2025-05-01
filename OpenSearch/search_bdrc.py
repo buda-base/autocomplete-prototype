@@ -1,10 +1,7 @@
 import json, re, requests
-from requests.auth import HTTPBasicAuth
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
-import jsonlines
-import io
 # suppress redundant messages in local
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -29,6 +26,7 @@ INNER_HITS_SIZE = 3
 
 # allow missing tokens every SLOP_VALUE tokens
 SLOP_VALUE = 6
+SLOP_MAX_VALUE = 5
 
 # 715 exact year ranked on top
 # 700 matches 8th century ranked lowest
@@ -217,6 +215,7 @@ def big_json(query_str, query_str_bo, omit_two_phrase=False, omit_etext=False):
 
     # 1. full phrase match
     weight_fields = get_fields('with_weights')
+    slop = min(int(number_of_tokens/SLOP_VALUE), SLOP_MAX_VALUE)
     should = {
         'bool': {
             'must': [
@@ -225,7 +224,7 @@ def big_json(query_str, query_str_bo, omit_two_phrase=False, omit_etext=False):
                         'type': 'phrase', 
                         'query': query_str, 
                         'fields': weight_fields,
-                        'slop': int(number_of_tokens/SLOP_VALUE)
+                        'slop': slop
                     }
                 }
             ],
@@ -289,12 +288,14 @@ def highlight_json(highlight_strings, exact=[]):
     if exact:
         fields += get_fields('bo_exacts')
     for string in highlight_strings + exact:
+        nb_tokens = len(re.split(r'[ \-/_()་༌]+', string))
+        slop = min(int(nb_tokens / SLOP_VALUE), SLOP_MAX_VALUE)
         should.append({
             "multi_match": {
                 "type": "phrase", 
                 "query": string, 
                 "fields": fields,
-                "slop": int(len(re.split(r'[ \-/_]+', string)) / SLOP_VALUE)
+                "slop": slop
             }
         })
 
@@ -369,8 +370,6 @@ def modify_highlights(results):
     if 'responses' in results:
         for hit in results['responses'][0]['hits']['hits']:
             if 'highlight' in hit:
-                combined_highlight = {}
-
                 # combine lenient highlight fields to the main one
                 for mainfield in ['prefLabel_bo_x_ewts', 'altLabel_bo_x_ewts', 'authorName_bo_x_ewts', 'authorshipStatement_bo_x_ewts']:
                     combined_values = hit['highlight'].get(mainfield , []) + \

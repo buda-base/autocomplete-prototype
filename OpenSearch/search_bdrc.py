@@ -1069,9 +1069,9 @@ def in_etext_search(data):
                     'etextNumber': doc['_source']['etextNumber'],
                     'volumeId': doc['_source'].get('etext_vol'),
                     'volumeNumber': doc['_source']['volumeNumber'],
-                    'startPnum': start_page_obj['pnum'],
-                    'startPageCstart':  start_page_obj['cstart'],
-                    'endPnum': end_page_obj['pnum'],
+                    'startPnum': start_page_obj['pnum'] if start_page_obj else None,
+                    'startPageCstart':  start_page_obj['cstart'] if start_page_obj else None,
+                    'endPnum': end_page_obj['pnum'] if end_page_obj else None,
                     'highlightStart': abs_match_start,
                     'highlightEnd': abs_match_end,
                     'snippet': snippet

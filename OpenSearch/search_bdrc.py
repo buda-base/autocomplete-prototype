@@ -32,6 +32,7 @@ SLOP_MAX_VALUE = 5
 # 700 matches 8th century ranked lowest
 # associatedCentury, birthDate, deathDate, flourishedDate, publicationDate
 def parse_year(query_str): 
+    """Extract year-based filters and return remaining query text."""
     # Find all 3-4 digit numbers bounded by spaces or string boundaries
     json_obj = []
     remaining_query = query_str
@@ -62,6 +63,7 @@ def parse_year(query_str):
     return json_obj, remaining_query
 
 def find_string_value(json_obj, key):
+    """Recursively locate a string value by key in nested structures."""
     if isinstance(json_obj, dict):
         for k, v in json_obj.items():
             if k == key:
@@ -78,6 +80,7 @@ def find_string_value(json_obj, key):
     return None
 
 def remove_etext_filter(data):
+    """Remove etext-specific filters from an OpenSearch query payload."""
     if isinstance(data, list):
         return [item for item in (remove_etext_filter(item) for item in data) if item is not None]
     elif isinstance(data, dict):
@@ -88,6 +91,7 @@ def remove_etext_filter(data):
         return data
 
 def get_fields(structure, langs=['bo_x_ewts', 'en', 'hani', 'iast', 'mymr', 'khmr']):
+    """Return field lists or mappings for the requested representation."""
     # if more than two languages, the two-phrase match starts reducing phrase pairs to avoid too big queries, and search suffers
     all_fields = {
         "prefLabel_hani": 1, "prefLabel_mymr": 1, "prefLabel_khmr": 1, "prefLabel_iast": 1, "prefLabel_bo_x_ewts": 1, "prefLabel_en": 0.25, 
@@ -137,6 +141,7 @@ def get_fields(structure, langs=['bo_x_ewts', 'en', 'hani', 'iast', 'mymr', 'khm
         return dict(list(fields.items()))
     
 def and_json(query_str, query_str_bo):
+    """Build boolean query for AND/composed phrase searches."""
     # double quotes split
     exact_phrases = []
     exact_phrases_bo = []
@@ -196,6 +201,7 @@ def and_json(query_str, query_str_bo):
     return json_obj, highlight_json(phrases, exact=exact_phrases)
 
 def big_json(query_str, query_str_bo, omit_two_phrase=False, omit_etext=False):
+    """Assemble the primary multi-clause search query and highlight config."""
     year_json, query_str = parse_year(query_str)
     query_words = re.split(r'[ \-/_]+', query_str)
     number_of_tokens = len(query_words)
@@ -283,6 +289,7 @@ def big_json(query_str, query_str_bo, omit_two_phrase=False, omit_etext=False):
 
 
 def highlight_json(highlight_strings, exact=[]):
+    """Generate highlight query targeting metadata label fields."""
     should = []
     fields = get_fields('as_list')
     if exact:
@@ -311,6 +318,7 @@ def highlight_json(highlight_strings, exact=[]):
     return highlight_query
 
 def range_workaround_before_os(ndjson):
+    """Replace unsupported range aggregations with equivalent filters."""
     for json_obj in ndjson:
         if 'aggs' in json_obj:
             aggs = json_obj['aggs']
@@ -343,6 +351,7 @@ def range_workaround_before_os(ndjson):
     return ndjson
 
 def range_workaround_after_os(results):
+    """Convert range filter responses back into bucket-like results."""
     for response in results.get('responses', []):
         for agg in response.get('aggregations', {}):
             if 'buckets' in response['aggregations'][agg]:
@@ -366,6 +375,7 @@ def range_workaround_after_os(results):
     return results
 
 def modify_highlights(results):
+    """Tidy highlight sections to emphasize most relevant matches."""
     # Get the best prefLabel highlights
     if 'responses' in results:
         for hit in results['responses'][0]['hits']['hits']:
@@ -433,6 +443,7 @@ def modify_highlights(results):
     return results
 
 def etext_json(query_str, query_str_bo, names=False, source=True, exact=False):
+    """Construct nested child query targeting etext content highlights."""
     if source:
         child_source = {"includes": ["etext_instance", "etext_pagination_in", "etext_imagegroup", "etext_vol", "volumeNumber"]}
     else:
@@ -551,6 +562,7 @@ PREFIX_PAT = None
 SUFFIX_PAT = None
 
 def stopwords(query_str):
+    """Strip common Tibetan honorific prefixes and suffixes from queries."""
     global PREFIX_PAT, SUFFIX_PAT
     if PREFIX_PAT is None:
         prefixes = [
@@ -579,6 +591,7 @@ def stopwords(query_str):
     return query_str
 
 def autosuggest_json(query_str, scope=['all']):
+    """Create autosuggest completion query with optional scope contexts."""
     os_json = {
         "suggest": {
             "autocomplete": {
@@ -599,6 +612,7 @@ def autosuggest_json(query_str, scope=['all']):
     return(os_json)
 
 def do_search(os_json, index):
+    """Execute a single OpenSearch query against the configured cluster."""
     headers = {'Content-Type': 'application/json'}
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_search'
@@ -608,6 +622,7 @@ def do_search(os_json, index):
     return r.json()
 
 def do_msearch(jsons, index):
+    """Execute an OpenSearch multi-search request."""
     headers = {'Content-Type': 'application/x-ndjson'}
     auth = (os.environ['OPENSEARCH_USER'], os.environ['OPENSEARCH_PASSWORD'])
     url = os.environ['OPENSEARCH_URL'] + f'/{index}/_msearch'
@@ -619,13 +634,21 @@ def do_msearch(jsons, index):
     return r.json()
 
 def convert_tibetan(query_str):
+    """Convert mixed Tibetan text to both Wylie and Unicode variants."""
     # convert combinations of tibetan unicode and ascii to pure unicode and pure ascii
     wylie = re.sub(r'([\u0F00-\u0FFF]+)', lambda m: CONVERTER.toWylie(m.group(1)), query_str)
     unicode = re.sub(r'([^\u0F00-\u0FFF]+)', lambda m: CONVERTER.toUnicode(m.group(1)), re.sub('AND', 'ཧྵ', query_str))
     unicode = re.sub('ཧྵ', 'AND', unicode)
     return wylie, unicode
 
+def looks_like_identifier(query_str):
+    """Return True when the query contains a non-space character followed by a digit."""
+    if "PL480" in query_str:
+        return False
+    return bool(re.search(r'([^\s0-9]\d)', query_str))
+
 def suggestion_highlight(user_input, suggestion):
+    """Wrap suggestion tail differences in tags for highlighting."""
     # user input matches suggestion
     if suggestion.startswith(user_input):
         return re.sub(f'^{user_input}(.*)$', fr'{user_input}<suggested>\1</suggested>', suggestion)
@@ -637,6 +660,7 @@ def suggestion_highlight(user_input, suggestion):
     return suggestion
 
 def id_json_autosuggest(query_str, scope=['all']):
+    """Build autosuggest query that targets identifiers and related fields."""
     os_json = {
         "query": {
             "bool": {
@@ -668,6 +692,7 @@ def id_json_autosuggest(query_str, scope=['all']):
     return os_json
 
 def id_json_search(query_str, original_jsons):
+    """Create identifier search payload reusing the original search template."""
     match_phrases = []
     if ' ' in query_str:
         id_code, label = re.split(' ', query_str, maxsplit=1)
@@ -723,6 +748,7 @@ def id_json_search(query_str, original_jsons):
 # Try to get highlights from all tokens of the query string, so that etext and metadata hits would be different.
 # Example query: "bla mchos sa skya bka' 'bum"
 def etext_highlights(results):
+    """Reorder inner hits so etext-only matches surface first."""
     if 'responses' in results:
         for hit in results['responses'][0]['hits']['hits']:
             metadata_tokens = set()
@@ -747,6 +773,7 @@ def etext_highlights(results):
     return results
 
 def replace_bdrc_query(original_jsons, replacement, highlight_query=None):
+    """Swap the main search clause and highlight settings with new ones."""
     for n in range(1, len(original_jsons), 2):
         # replace the main query
         try:
@@ -765,6 +792,7 @@ def replace_bdrc_query(original_jsons, replacement, highlight_query=None):
     return original_jsons
 
 def get_query_str(data):
+    """Extract normalized ASCII and Tibetan query strings from input."""
     # prepare in-etext query string
     if isinstance(data, str):
         query_str = data
@@ -790,12 +818,14 @@ def get_query_str(data):
     return query_str_ascii, query_str_bo
 
 def is_etext_only(original_jsons):
+    """Return True if all queries target etext content only."""
     for one_json in original_jsons:
         if find_string_value(one_json, 'etext_search') == 'true':
             return True
     return False
 
 def print_jsons(print_me, place, query_str):
+    """Persist or print debugging artifacts based on environment settings."""
     # export OPENSEARCH_PRINT="tests" to recreate tests
     if os.getenv('OPENSEARCH_PRINT') == 'tests':
         # save searchkit jsons in ./tests
@@ -827,6 +857,7 @@ def print_jsons(print_me, place, query_str):
 
 @app.route('/autosuggest', methods=['POST', 'GET'])
 def autosuggest(test_json=None):
+    """Handle autosuggest requests, optionally returning test payloads."""
     data = request.json if not test_json else test_json
 
     # handle scope if it is None, [] or [""]
@@ -876,6 +907,7 @@ def autosuggest(test_json=None):
     return jsonify(results) if not test_json else os_json
 
 def in_etext_search(data):
+    """Search within a specific etext document and return highlighted hits."""
     # Prepare query strings
     query_string_ascii, query_string_bo = get_query_str(data['query'])
     
@@ -1080,6 +1112,7 @@ def in_etext_search(data):
     return hits
 
 def exclude_filters(data):
+    """Remove or rewrite filters that should not reach OpenSearch."""
     for json_obj in data:
         try: filters = json_obj['query']['function_score']['query']['bool']['filter']
         except KeyError:
@@ -1101,6 +1134,7 @@ def exclude_filters(data):
 # search within etext
 @app.route('/in_etext', methods=['POST', 'GET'])
 def in_etext(test_json=None):
+    """Flask wrapper for in-etext searches supporting test payloads."""
     data = request.json if not test_json else test_json
     return in_etext_search(data)
 
@@ -1108,6 +1142,7 @@ def in_etext(test_json=None):
 @app.route('/msearch', methods=['POST', 'GET'])
 @app.route('/_msearch', methods=['POST', 'GET'])
 def msearch(test_json=None, omit_two_phrase=False):
+    """Process multi-search requests, adapting queries for various cases."""
     ndjson = request.data.decode('utf-8') if not test_json else test_json
     original_jsons = []
     should_omit_etexts = False
@@ -1121,7 +1156,7 @@ def msearch(test_json=None, omit_two_phrase=False):
     print_jsons(original_jsons, 'searchkit', query_str)
 
     # id search
-    if re.search(r'([^\s0-9]\d)', query_str):
+    if looks_like_identifier(query_str):
         data = id_json_search(query_str, original_jsons)
         print_jsons(data, 'opensearch', query_str)
         results = do_msearch(data, 'bdrc_prod')

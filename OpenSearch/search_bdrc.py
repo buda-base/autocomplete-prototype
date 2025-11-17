@@ -1104,6 +1104,7 @@ def in_etext_search(data):
                     'startPnum': start_page_obj['pnum'] if start_page_obj else None,
                     'startPageCstart':  start_page_obj['cstart'] if start_page_obj else None,
                     'endPnum': end_page_obj['pnum'] if end_page_obj else None,
+                    'chunkCstart': hit['_source']['cstart'],
                     'highlightStart': abs_match_start,
                     'highlightEnd': abs_match_end,
                     'snippet': snippet
